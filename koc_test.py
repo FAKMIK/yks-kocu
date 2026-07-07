@@ -1,11 +1,15 @@
 import os
+import re
 import json
 import io
+import hashlib
 import streamlit as st
 from PIL import Image
 import google.generativeai as genai
 from datetime import datetime
 import matplotlib.pyplot as plt
+import requests
+from bs4 import BeautifulSoup
 
 # --------------------- ÖZEL CSS (MODERN TASARIM) ---------------------
 st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
@@ -61,8 +65,8 @@ st.markdown("""
         border-left: 3px solid #2E4374;
         padding: 1rem;
     }
-    /* Sidebar */
-    .css-1d391kg {
+    /* Sidebar (data-testid kullanıldı; .css-xxxx sınıfları versiyona göre değişip kırılabiliyor) */
+    [data-testid="stSidebar"] {
         background-color: #F8FAFC;
         padding: 1.5rem 1rem;
     }
@@ -134,7 +138,9 @@ st.markdown("""
 
 # --------------------- AYARLAR VE TANIMLAMALAR ---------------------
 MAX_MEMORY_CHARS = 4000
-HAFIZA_DOSYASI = "yks_hafiza.jsonl"
+MEMORY_DIR = "yks_hafiza_kayitlari"
+os.makedirs(MEMORY_DIR, exist_ok=True)
+
 
 def configure_gemini():
     """Gemini API anahtarını kontrol eder ve yapılandırır."""
@@ -146,38 +152,117 @@ def configure_gemini():
         return True
     return False
 
+
 def get_model():
     """Gemini modelini döndürür."""
     return genai.GenerativeModel('gemini-2.5-flash')
 
-def load_memory():
-    """Kayıtlı hafıza geçmişini JSONL dosyasından okur."""
-    if not os.path.exists(HAFIZA_DOSYASI):
+
+# --------------------- KULLANICI BAZLI HAFIZA (İZOLASYON) ---------------------
+# ÖNEMLİ: Uygulama tek bir dosyaya (yks_hafiza.jsonl) yazdığında, birden fazla
+# kişi aynı anda kullandığında herkesin verileri karışıyor ve birbirlerinin
+# kayıtlarını görebiliyorlardı. Bunu önlemek için basit bir "kullanıcı adı"
+# alanı ekledik; her kullanıcının verisi kendi adına özel bir dosyada tutulur.
+# Not: Bu, gerçek bir kimlik doğrulama sistemi DEĞİLDİR — sadece verilerin
+# kullanıcılar arasında karışmasını engeller. Gerçek güvenlik için (şifreli)
+# giriş sistemi ve bir veritabanı (ör. SQLite/Postgres) önerilir.
+
+def get_memory_filepath(user_key: str) -> str:
+    safe_hash = hashlib.sha256(user_key.strip().lower().encode("utf-8")).hexdigest()[:16]
+    return os.path.join(MEMORY_DIR, f"hafiza_{safe_hash}.jsonl")
+
+
+def load_memory(user_key: str):
+    """Kayıtlı hafıza geçmişini kullanıcıya özel JSONL dosyasından okur."""
+    path = get_memory_filepath(user_key)
+    if not os.path.exists(path):
         return []
     records = []
-    with open(HAFIZA_DOSYASI, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 try:
                     records.append(json.loads(line))
-                except:
+                except Exception:
                     continue
     return records
 
-def save_memory(record_type, content, title=""):
-    """Yeni bir veriyi hafızaya tarihle birlikte kaydeder."""
+
+def save_memory(user_key: str, record_type, content, title=""):
+    """Yeni bir veriyi kullanıcıya özel hafızaya tarihle birlikte kaydeder."""
     record = {
+        "id": hashlib.sha256(f"{datetime.now().isoformat()}-{title}-{len(content)}".encode()).hexdigest()[:12],
         "type": record_type,
         "title": title,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "content": content
     }
-    with open(HAFIZA_DOSYASI, "a", encoding="utf-8") as f:
+    path = get_memory_filepath(user_key)
+    with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-def scrape_link(url):
-    """Link içeriğini basitçe simüle eder veya okur."""
-    return {"title": "Web Kaynağı", "content": f"Uzak bağlantı içeriği: {url}"}, None
+
+def delete_memory_record(user_key: str, record_id: str):
+    """Belirtilen id'ye sahip kaydı hafızadan siler (dosyayı yeniden yazarak)."""
+    path = get_memory_filepath(user_key)
+    if not os.path.exists(path):
+        return
+    remaining = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if rec.get("id") != record_id:
+                remaining.append(rec)
+    with open(path, "w", encoding="utf-8") as f:
+        for rec in remaining:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+# --------------------- GERÇEK LİNK OKUMA (WEB SCRAPING) ---------------------
+# ÖNEMLİ: Orijinal `scrape_link` fonksiyonu hiçbir şey okumuyordu, sadece
+# "Uzak bağlantı içeriği: {url}" gibi sahte bir metin döndürüyordu. Aşağıdaki
+# sürüm sayfayı gerçekten indirir ve ana metni çıkarır.
+
+def scrape_link(url: str, max_chars: int = 6000):
+    """Verilen URL'nin içeriğini indirir ve düz metne çevirir."""
+    if not re.match(r"^https?://", url.strip(), flags=re.IGNORECASE):
+        url = "https://" + url.strip()
+
+    try:
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (compatible; YKSKocuBot/1.0; "
+                "+https://example.com/bot)"
+            )
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+    except requests.exceptions.RequestException as exc:
+        return None, f"Link okunamadı: {exc}"
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    title_tag = soup.find("title")
+    title = title_tag.get_text(strip=True) if title_tag else "Başlık bulunamadı"
+
+    for tag in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+        tag.decompose()
+
+    text = soup.get_text(separator="\n")
+    lines = [line.strip() for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    clean_text = "\n".join(lines)[:max_chars]
+
+    if not clean_text:
+        return None, "Sayfadan okunabilir bir metin çıkarılamadı."
+
+    return {"title": title, "content": clean_text}, None
+
 
 def memory_to_text(records):
     """Hafıza kayıtlarını yapay zekanın anlayacağı metin bloklarına çevirir."""
@@ -196,11 +281,13 @@ def memory_to_text(records):
         )
     return "\n\n".join(blocks)[:MAX_MEMORY_CHARS]
 
+
 def generate_text(prompt):
     """Metin tabanlı Gemini isteği gönderir."""
     model = get_model()
     response = model.generate_content(prompt)
     return response.text
+
 
 def analyze_image(uploaded_file):
     """Soru fotoğrafını analiz eder."""
@@ -213,6 +300,7 @@ def analyze_image(uploaded_file):
     )
     response = model.generate_content([prompt, image])
     return response.text
+
 
 def generate_structured_plan(plan_metni):
     """Serbest metin halindeki bir programı, görselleştirmeye uygun JSON'a çevirir."""
@@ -232,6 +320,7 @@ def generate_structured_plan(plan_metni):
     text = response.text.strip()
     text = text.replace("```json", "").replace("```", "").strip()
     return json.loads(text)
+
 
 def render_program_image(program_data):
     """Yapılandırılmış program verisinden bir haftalık program görseli (PNG) üretir."""
@@ -287,6 +376,7 @@ def render_program_image(program_data):
     buf.seek(0)
     return buf
 
+
 def gorsel_olustur_ve_goster(plan_metni, anahtar):
     """Metin programdan JSON üretip görseli ekrana basan ve indirme butonu koyan yardımcı fonksiyon."""
     with st.spinner("Program görselleştiriliyor..."):
@@ -306,23 +396,44 @@ def gorsel_olustur_ve_goster(plan_metni, anahtar):
         key=f"indir_{anahtar}",
     )
 
+
 # --------------------- ARAYÜZ BAŞLANGICI ---------------------
 api_ready = configure_gemini()
 
 st.title("📘 Kagan'in Yapay Zeka YKS Koçu")
 st.caption("Analiz et → Yönlendir → Başarıya ulaş")
 
-# ---- YAN MENÜ (SIDEBAR) ----
+# ---- KULLANICI KİMLİĞİ (basit izolasyon) ----
+if "user_key" not in st.session_state:
+    st.session_state.user_key = ""
+
 with st.sidebar:
-    # İstersen buraya bir logo ekleyebilirsin:
-    # st.image("logo.png", width=150)
+    st.header("👤 Profil")
+    user_key_input = st.text_input(
+        "Kullanıcı adın",
+        value=st.session_state.user_key,
+        placeholder="ör. kagan_2026",
+        help="Hafızanı diğer kullanıcılardan ayırmak için bir isim/rumuz gir. "
+             "Aynı adı tekrar girersen kayıtlarına tekrar erişebilirsin.",
+    )
+    st.session_state.user_key = user_key_input.strip()
+
+    st.divider()
     st.header("🧠 Durum")
     if api_ready:
         st.success("✅ Gemini API hazır")
     else:
         st.error("❌ GEMINI_API_KEY bulunamadı")
 
-    saved_records = load_memory()
+if not st.session_state.user_key:
+    st.warning("👈 Devam etmeden önce soldaki menüden bir kullanıcı adı gir. "
+               "Bu, senin verilerinin başka kullanıcılarla karışmasını engeller.")
+    st.stop()
+
+USER_KEY = st.session_state.user_key
+
+with st.sidebar:
+    saved_records = load_memory(USER_KEY)
     st.metric("📂 Hafıza kaydı", len(saved_records))
 
     if saved_records:
@@ -362,7 +473,7 @@ with tab_question:
                 else:
                     st.success("✅ Analiz tamamlandı.")
                     st.markdown(analysis)
-                    save_memory("soru_analizi", analysis, uploaded_file.name)
+                    save_memory(USER_KEY, "soru_analizi", analysis, uploaded_file.name)
 
 # ---- 2. SEKME: PROGRAM YÖNETİMİ ----
 with tab_program:
@@ -391,7 +502,7 @@ with tab_program:
             else:
                 with st.spinner("Program hazırlanıyor..."):
                     try:
-                        memory_text = memory_to_text(load_memory())
+                        memory_text = memory_to_text(load_memory(USER_KEY))
                         prompt = (
                             f"Öğrencinin durumu:\n{student_status}\n\n"
                             f"Hafıza kayıtları:\n{memory_text}\n\n"
@@ -405,7 +516,7 @@ with tab_program:
                     else:
                         st.success("✅ Program hazır.")
                         st.markdown(plan)
-                        save_memory("calisma_programi", plan, "Yapay zeka programı")
+                        save_memory(USER_KEY, "calisma_programi", plan, "Yapay zeka programı")
                         st.session_state["son_ai_programi"] = plan
 
         if st.session_state.get("son_ai_programi"):
@@ -424,7 +535,7 @@ with tab_program:
             if not current_plan.strip():
                 st.warning("Önce programını yaz.")
             else:
-                save_memory("calisma_programi", current_plan, "Kagan'in mevcut programı")
+                save_memory(USER_KEY, "calisma_programi", current_plan, "Kagan'in mevcut programı")
                 st.success("✅ Program hafızaya kaydedildi.")
                 st.session_state["son_manuel_program"] = current_plan
 
@@ -455,16 +566,16 @@ with tab_resource:
                     f"Sayfa başlığı: {scraped['title']}\n\n"
                     f"{scraped['content']}"
                 )
-                save_memory("kaynak_linki", content, link_topic)
+                save_memory(USER_KEY, "kaynak_linki", content, link_topic)
                 st.success("✅ Link içeriği hafızaya eklendi.")
         else:
-            save_memory("kaynak_linki", link.strip(), link_topic)
+            save_memory(USER_KEY, "kaynak_linki", link.strip(), link_topic)
             st.success("✅ Link hafızaya eklendi.")
 
 # ---- 4. SEKME: HAFIZA ----
 with tab_memory:
     st.subheader("🗂️ Kayıtlı Hafıza")
-    records = load_memory()
+    records = load_memory(USER_KEY)
 
     if not records:
         st.info("Henüz hafıza kaydı yok.")
@@ -473,9 +584,17 @@ with tab_memory:
             with st.expander(f"{record.get('type')} | {record.get('title')}"):
                 st.caption(record.get("created_at", "Tarih yok"))
                 st.write(record.get("content", ""))
-                if record.get("type") == "calisma_programi":
-                    if st.button("📊 Bu Programın Görselini Oluştur", key=f"gorsel_hafiza_{idx}"):
-                        gorsel_olustur_ve_goster(record.get("content", ""), f"hafiza_{idx}")
+
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    if record.get("type") == "calisma_programi":
+                        if st.button("📊 Bu Programın Görselini Oluştur", key=f"gorsel_hafiza_{idx}"):
+                            gorsel_olustur_ve_goster(record.get("content", ""), f"hafiza_{idx}")
+                with col_b:
+                    if st.button("🗑️ Bu Kaydı Sil", key=f"sil_{idx}"):
+                        delete_memory_record(USER_KEY, record.get("id"))
+                        st.success("Kayıt silindi.")
+                        st.rerun()
 
 # ---- SOHBET ALANI ----
 st.divider()
@@ -497,7 +616,7 @@ if user_input := st.chat_input("Koçuna bir şey sor..."):
     with st.chat_message("assistant"):
         with st.spinner("Düşünüyorum..."):
             try:
-                memory_text = memory_to_text(load_memory())
+                memory_text = memory_to_text(load_memory(USER_KEY))
                 prompt = (
                     f"Hafıza kayıtları:\n{memory_text}\n\n"
                     f"Kagan'in mesajı:\n{user_input}\n\n"
