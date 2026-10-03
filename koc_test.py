@@ -1,8 +1,7 @@
-"""YKS Koçu - Streamlit uygulaması.
+"""YKS Koçu - Streamlit Uygulaması
 
-Kurulum: pip install streamlit google-generativeai requests beautifulsoup4
-İsteğe bağlı görsel program çıktısı: pip install matplotlib pillow
-API anahtarı: .streamlit/secrets.toml içine GEMINI_API_KEY = "..."
+Kurulum: pip install streamlit google-generativeai requests beautifulsoup4 matplotlib pillow
+API Anahtarı: .streamlit/secrets.toml içine GEMINI_API_KEY = "..."
 """
 
 from __future__ import annotations
@@ -12,9 +11,8 @@ import io
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
-from urllib.parse import urlparse
 
 import requests
 import streamlit as st
@@ -40,47 +38,103 @@ except ImportError:
     plt = None
 
 
-# Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
-st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
+# Sayfa Yapılandırması
+st.set_page_config(
+    page_title="YKS Koçu Pro - Yapay Zeka Rehberlik",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# CSS: Web sitesini tam genişlik yapacak şekilde güncellendi
+# Gelişmiş CSS Tasarımı & Genişlik Ayarları
 st.markdown("""
 <style>
-:root { --ink:#172554; --brand:#334e8c; --soft:#f3f6fb; --line:#dbe3ef; }
-
-/* Ekranın tüm genişliğini kullanmasını sağlayan CSS tanımları */
-.main .block-container {
-    max-width: 100% !important;
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
-    padding-top: 2rem !important;
+:root { 
+    --primary: #1e3a8a; 
+    --primary-hover: #1d4ed8;
+    --accent: #3b82f6; 
+    --bg-soft: #f8fafc; 
+    --card-border: #e2e8f0;
+    --text-dark: #0f172a;
 }
 
-.main { color:var(--ink); font-family:'Segoe UI',Roboto,sans-serif; }
-h1,h2,h3 { color:var(--brand); font-weight:650; }
-.stButton button,.stDownloadButton button { border-radius:10px; font-weight:600; transition:0.18s ease; }
-.stButton button { background:var(--brand); color:white; border:0; }
-.stButton button:hover { background:#253b70; color:white; transform:translateY(-1px); }
-.stTextInput input,.stTextArea textarea { border-radius:9px; border-color:var(--line); }
-[data-testid="stSidebar"] { background:#f7f9fc; }
-[data-testid="stMetric"] { background:white; border:1px solid var(--line); border-radius:12px; padding:12px; }
-.stTabs [data-baseweb="tab-list"] { gap:8px; }
-.stTabs [data-baseweb="tab"] { border-radius:8px 8px 0 0; }
-[data-testid="stChatMessage"] { border-radius:12px; }
-@media(max-width:650px) { 
-    .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
-    .stTabs [data-baseweb="tab"] { padding:6px 9px; } 
+/* Tam Genişlik ve İç Boşluk Düzenlemesi */
+.main .block-container {
+    max-width: 100% !important;
+    padding: 1.5rem 2.5rem !important;
+}
+
+.main { 
+    color: var(--text-dark); 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+}
+
+/* Başlık Stilleri */
+h1, h2, h3 { 
+    color: var(--primary); 
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+/* Buton Tasarımları */
+.stButton button, .stDownloadButton button { 
+    border-radius: 10px !important; 
+    font-weight: 600 !important; 
+    transition: all 0.2s ease !important;
+    background: linear-gradient(135deg, var(--primary), var(--accent)) !important;
+    color: white !important;
+    border: none !important;
+    padding: 0.5rem 1.25rem !important;
+}
+
+.stButton button:hover { 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Kart & Metrik Stilleri */
+div[data-testid="stMetric"] { 
+    background: white; 
+    border: 1px solid var(--card-border); 
+    border-radius: 14px; 
+    padding: 16px; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+/* Yan Menü (Sidebar) */
+[data-testid="stSidebar"] { 
+    background-color: #f1f5f9; 
+    border-right: 1px solid var(--card-border);
+}
+
+/* Tab Tasarımı */
+.stTabs [data-baseweb="tab-list"] { 
+    gap: 12px; 
+    border-bottom: 2px solid var(--card-border);
+}
+
+.stTabs [data-baseweb="tab"] { 
+    border-radius: 10px 10px 0 0; 
+    font-weight: 600;
+    padding: 10px 20px;
+}
+
+/* Chat Mesaj Kutuları */
+[data-testid="stChatMessage"] { 
+    border-radius: 14px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    margin-bottom: 12px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 MEMORY_DIR = Path(__file__).resolve().parent / "yks_hafiza_kayitlari"
-MAX_MEMORY_CHARS = 4000
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+MAX_MEMORY_CHARS = 4000
 
 
+# Helper Fonksiyonlar
 def configure_gemini() -> bool:
-    """API anahtarını secrets veya ortam değişkeninden alıp Gemini'yi hazırlar."""
     if genai is None:
         st.error("Gemini paketi bulunamadı. `pip install google-generativeai` komutunu çalıştırın.")
         return False
@@ -135,7 +189,6 @@ def build_memory_context(user_key: str) -> str:
 
 
 def web_search_duckduckgo(query: str, max_results: int = 3) -> list[dict]:
-    """DuckDuckGo HTML üzerinden basit web araması yapmayı dener."""
     if BeautifulSoup is None:
         return []
     url = "https://html.duckduckgo.com/html/"
@@ -156,24 +209,16 @@ def web_search_duckduckgo(query: str, max_results: int = 3) -> list[dict]:
 
 
 def generate_schedule_image(schedule_data: dict) -> io.BytesIO | None:
-    """Haftalık çalışma programını matplotlib ile görselleştirir."""
     if plt is None:
         return None
-    
     days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 5))
     ax.axis("off")
-    
-    table_data = []
-    for day in days:
-        tasks = schedule_data.get(day, ["Dinlenme / Serbest"])
-        table_data.append([day, "\n".join(tasks)])
-        
+    table_data = [[day, "\n".join(schedule_data.get(day, ["Dinlenme"]))] for day in days]
     table = ax.table(cellText=table_data, colLabels=["Gün", "Çalışma Planı"], loc="center", cellLoc="left")
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1.2, 1.8)
-    
     buf = io.BytesIO()
     plt.tight_layout()
     plt.savefig(buf, format="png", bbox_inches="tight", dpi=150)
@@ -182,13 +227,44 @@ def generate_schedule_image(schedule_data: dict) -> io.BytesIO | None:
     return buf
 
 
-# --- Uygulama Arayüzü ---
-
-st.sidebar.title("📚 YKS Koçu Paneli")
+# --- YAN MENÜ (SIDEBAR) & GERİ SAYIM ---
+st.sidebar.image("https://img.icons8.com/illustrations/100/graduation-cap.png", width=80)
+st.sidebar.title("YKS Koçu Pro")
 user_key = st.sidebar.text_input("Öğrenci Adı / ID:", value="öğrenci1")
 
-tab1, tab2, tab3 = st.tabs(["💬 Yapay Zeka Koç", "📅 Ders Programı Hazırla", "📝 Notlarım & Hafıza"])
+# YKS Geri Sayım Widget'ı
+st.sidebar.markdown("---")
+st.sidebar.subheader("⏳ YKS Geri Sayım")
+yks_date = date(2027, 6, 20)  # Tahmini sınav tarihi
+kalan_gun = (yks_date - date.today()).days
+if kalan_gun > 0:
+    st.sidebar.metric("YKS 2027'ye Kalan Gün", f"{kalan_gun} Gün")
+else:
+    st.sidebar.success("Sınav günü geldi! Başarılar!")
 
+st.sidebar.markdown("---")
+st.sidebar.info("💡 **İpucu:** Yapay zeka koçunuzdan günlük soru çözümü ve konu anlatımı stratejisi isteyebilirsiniz.")
+
+
+# --- ANA SAYFA METRİKLERİ ---
+col_m1, col_m2, col_m3 = st.columns(3)
+col_m1.metric("📌 Aktif Öğrenci", user_key.capitalize())
+col_m2.metric("💬 Sohbet Geçmişi", f"{len(st.session_state.get('messages', []))} Mesaj")
+col_m3.metric("🎯 Hedef", "YKS Derece")
+
+st.markdown("---")
+
+# Tab Yapısı
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "💬 Yapay Zeka Koç", 
+    "📅 Çalışma Programı", 
+    "📊 Net Takip Grafiği", 
+    "⏱️ Pomodoro Zamanlayıcı",
+    "✅ Konu Takip Listesi"
+])
+
+
+# --- TAB 1: YAPAY ZEKA KOÇ ---
 with tab1:
     st.header("YKS Koçunuz ile Sohbet Edin")
     st.caption("Netleriniz, çalışma stratejileriniz veya konu eksikleriniz hakkında soru sorun.")
@@ -218,7 +294,7 @@ with tab1:
                     search_context = "\nWeb Arama Sonuçları:\n" + "\n".join([f"- {r['title']}: {r['snippet']}" for r in search_results])
 
             system_instruction = (
-                "Sen uzman bir YKS (Yükseköğretim Kurumları Sınavı) rehberlik koçusun. "
+                "Sen uzman bir YKS rehberlik koçusun. "
                 "Öğrenciye motive edici, sistemli ve net odaklı tavsiyeler ver. "
                 f"\n\n{hafiza_ozeti}\n{search_context}"
             )
@@ -238,17 +314,20 @@ with tab1:
                     except Exception as err:
                         st.error(f"Bir hata oluştu: {err}")
         else:
-            st.warning("Lütfen `.streamlit/secrets.toml` dosyasına veya ortam değişkenlerine `GEMINI_API_KEY` ekleyin.")
+            st.warning("Lütfen `.streamlit/secrets.toml` dosyasına `GEMINI_API_KEY` ekleyin.")
 
+
+# --- TAB 2: ÇALIŞMA PROGRAMI ---
 with tab2:
-    st.header("Haftalık Çalışma Programı")
-    st.write("Hedeflerinize göre otomatik çalışma programı oluşturun.")
+    st.header("Haftalık Çalışma Programı Hazırlayıcı")
+    c1, c2 = st.columns(2)
+    with c1:
+        alani = st.selectbox("Alanınız:", ["Sayısal", "Eşit Ağırlık", "Sözel", "Dil"])
+        gunluk_saat = st.slider("Günde Kaç Saat Çalışabilirsiniz?", 1, 12, 5)
+    with c2:
+        hedef = st.text_input("Öncelikli Hedef / Eksik Konular:", "Matematik LTI, Fizik Dalgalar")
 
-    alani = st.selectbox("Alanınız:", ["Sayısal", "Eşit Ağırlık", "Sözel", "Dil"])
-    gunluk_saat = st.slider("Günde Kaç Saat Çalışabilirsiniz?", 1, 12, 5)
-    hedef = st.text_input("Öncelikli Hedef veya Eksik Konularınız:", "Matematik LTI, Fizik Dalgalar")
-
-    if st.button("Program Oluştur"):
+    if st.button("Program Oluştur ✨"):
         if configure_gemini():
             model = get_model()
             prog_prompt = (
@@ -267,18 +346,80 @@ with tab2:
 
                         img_buf = generate_schedule_image(schedule_dict)
                         if img_buf:
-                            st.image(img_buf, caption="Haftalık Program Görseliniz")
-                            st.download_button("Program Görselini İndir (PNG)", data=img_buf, file_name="yks_program.png", mime="image/png")
+                            st.image(img_buf, caption="Haftalık Görsel Programınız")
+                            st.download_button("Programı İndir (PNG)", data=img_buf, file_name="yks_program.png", mime="image/png")
                     else:
                         st.write(res.text)
                 except Exception as e:
-                    st.error(f"Program oluşturulurken hata: {e}")
+                    st.error(f"Hata oluştu: {e}")
 
+
+# --- TAB 3: NET TAKİP GRAFİĞİ ---
 with tab3:
-    st.header("Öğrenci Hafızası & Geçmiş Notlar")
-    records = load_memory(user_key)
-    if records:
-        for rec in reversed(records):
-            st.info(f"**[{rec.get('tarih')}]**\n{rec.get('icerik')}")
-    else:
-        st.write("Henüz kaydedilmiş bir hafıza/not kaydı bulunmuyor.")
+    st.header("📈 Deneme Net Takibi")
+    
+    if "net_data" not in st.session_state:
+        st.session_state.net_data = [{"Deneme": "Deneme 1", "TYT": 65, "AYT": 35}]
+
+    with st.form("net_form"):
+        f_col1, f_col2, f_col3 = st.columns(3)
+        d_name = f_col1.text_input("Deneme Adı/Tarih", value=f"Deneme {len(st.session_state.net_data)+1}")
+        tyt_net = f_col2.number_input("TYT Neti", 0.0, 120.0, 70.0)
+        ayt_net = f_col3.number_input("AYT Neti", 0.0, 80.0, 40.0)
+        submit_net = st.form_submit_button("Neti Kaydet")
+
+        if submit_net:
+            st.session_state.net_data.append({"Deneme": d_name, "TYT": tyt_net, "AYT": ayt_net})
+            st.success("Netiniz kaydedildi!")
+
+    if plt and st.session_state.net_data:
+        denemeler = [d["Deneme"] for d in st.session_state.net_data]
+        tyt_list = [d["TYT"] for d in st.session_state.net_data]
+        ayt_list = [d["AYT"] for d in st.session_state.net_data]
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(denemeler, tyt_list, marker='o', label='TYT Net', color='#1d4ed8', linewidth=2)
+        ax.plot(denemeler, ayt_list, marker='s', label='AYT Net', color='#dc2626', linewidth=2)
+        ax.set_ylabel("Net Sayısı")
+        ax.set_title("Net Gelişim Grafiği")
+        ax.legend()
+        ax.grid(True, linestyle='--', alpha=0.5)
+        st.pyplot(fig)
+
+
+# --- TAB 4: POMODORO ZAMANLAYICI ---
+with tab4:
+    st.header("⏱️ Pomodoro Odaklanma Sayacı")
+    p_col1, p_col2 = st.columns([1, 2])
+    with p_col1:
+        sure = st.number_input("Çalışma Süresi (Dakika):", value=25, min_value=1, max_value=60)
+        if st.button("Sayacı Başlat"):
+            st.info(f"{sure} dakikalık odaklanma süresi başladı! Dersinize odaklanın.")
+    with p_col2:
+        st.markdown("""
+        **Pomodoro Tekniği Nasıl Uygulanır?**
+        1. 25 dakika kesintisiz derse odaklanın.
+        2. 5 dakika kısa mola verin.
+        3. 4 periyot tamamladıktan sonra 20-30 dakikalık uzun mola verin.
+        """)
+
+
+# --- TAB 5: KONU TAKİP LİSTESİ ---
+with tab5:
+    st.header("✅ YKS Temel Konu Takibi")
+    k_col1, k_col2 = st.columns(2)
+    
+    with k_col1:
+        st.subheader("TYT Matematik")
+        st.checkbox("Temel Kavramlar & Sayılar", value=True)
+        st.checkbox("Rasyonel Sayılar")
+        st.checkbox("Denklemler ve Eşitsizlikler")
+        st.checkbox("Problemler")
+        st.checkbox("Fonksiyonlar")
+
+    with k_col2:
+        st.subheader("TYT Türkçe")
+        st.checkbox("Sözcükte ve Cümlede Anlam", value=True)
+        st.checkbox("Paragraf Yapısı ve Yorumu")
+        st.checkbox("Yazım Kuralları & Noktalama")
+        st.checkbox("Dil Bilgisi (Dilbilgisi Karma)")
