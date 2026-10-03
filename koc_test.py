@@ -43,9 +43,19 @@ except ImportError:
 # Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
 st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
 
+# CSS: Web sitesini tam genişlik yapacak şekilde güncellendi
 st.markdown("""
 <style>
 :root { --ink:#172554; --brand:#334e8c; --soft:#f3f6fb; --line:#dbe3ef; }
+
+/* Ekranın tüm genişliğini kullanmasını sağlayan CSS tanımları */
+.main .block-container {
+    max-width: 100% !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    padding-top: 2rem !important;
+}
+
 .main { color:var(--ink); font-family:'Segoe UI',Roboto,sans-serif; }
 h1,h2,h3 { color:var(--brand); font-weight:650; }
 .stButton button,.stDownloadButton button { border-radius:10px; font-weight:600; transition:0.18s ease; }
@@ -57,7 +67,10 @@ h1,h2,h3 { color:var(--brand); font-weight:650; }
 .stTabs [data-baseweb="tab-list"] { gap:8px; }
 .stTabs [data-baseweb="tab"] { border-radius:8px 8px 0 0; }
 [data-testid="stChatMessage"] { border-radius:12px; }
-@media(max-width:650px) { .stTabs [data-baseweb="tab"] { padding:6px 9px; } }
+@media(max-width:650px) { 
+    .main .block-container { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .stTabs [data-baseweb="tab"] { padding:6px 9px; } 
+}
 </style>
 """, unsafe_allow_html=True)
 
