@@ -10,6 +10,7 @@ import hashlib
 import io
 import json
 import os
+import random
 import re
 from datetime import datetime, date
 from pathlib import Path
@@ -54,7 +55,6 @@ st.markdown("""
     padding: 1.5rem 2.5rem !important;
 }
 
-/* Şeffaf Glassmorphism Kartlar */
 div[data-testid="stMetric"] {
     background-color: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid rgba(128, 128, 128, 0.2) !important;
@@ -73,7 +73,6 @@ div[data-testid="stMetricValue"] div {
     font-weight: 700 !important;
 }
 
-/* Buton Tasarımları */
 .stButton button, .stDownloadButton button {
     border-radius: 10px !important;
     font-weight: 600 !important;
@@ -89,7 +88,6 @@ div[data-testid="stMetricValue"] div {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* Tab Tasarımı */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
     border-bottom: 2px solid rgba(128, 128, 128, 0.2);
@@ -101,7 +99,6 @@ div[data-testid="stMetricValue"] div {
     padding: 10px 16px;
 }
 
-/* Chat Mesaj Kutuları */
 [data-testid="stChatMessage"] {
     border-radius: 12px;
     border: 1px solid rgba(128, 128, 128, 0.15);
@@ -252,16 +249,18 @@ col_m4.metric("🎯 Hedef Derece", "Top 10K")
 
 st.markdown("---")
 
-# --- ANA TAB YAPISI (8 KAPSAMLI MODÜL) ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+# --- ANA TAB YAPISI (GENİŞLETİLMİŞ 10 MODÜL) ---
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "💬 Yapay Zeka Koç", 
     "📸 Görsel Soru Çözücü",
     "📅 Çalışma Programı", 
+    "🔀 Formül & Bilgi Kartları",
+    "🏛️ YÖK Atlas Hedef Robotu",
+    "📊 ÖSYM Trend Analizi",
     "📋 Görev Listesi (To-Do)",
     "📕 Hata Defteri & Analiz",
     "🧮 YKS Puan Hesapla",
-    "📊 Net Takip Grafiği", 
-    "✅ Detaylı Konu Takibi"
+    "⏱️ Pomodoro & Lo-Fi"
 ])
 
 
@@ -379,8 +378,74 @@ with tab3:
                     st.error(f"Hata oluştu: {e}")
 
 
-# --- TAB 4: HAFTALIK GÖREV LİSTESİ (TO-DO) ---
+# --- TAB 4: FORMÜL & BİLGİ KARTLARI (FLASHCARDS) ---
 with tab4:
+    st.header("🔀 Hızlı Tekrar: YKS Formül & Bilgi Kartları")
+    st.caption("Kartların üzerine tıklayarak veya değiştirerek hızlı konu tekrarı yapın.")
+
+    cards = [
+        {"ders": "Matematik", "soru": "Trigonometri: sin²(x) + cos²(x) kaçtır?", "cevap": "1"},
+        {"ders": "Fizik", "soru": "Newton'un 2. Hareket Yasası (Temel Yasa) nedir?", "cevap": "F = m * a"},
+        {"ders": "Kimya", "soru": "İdeal Gaz Denklemi formülü nedir?", "cevap": "P * V = n * R * T"},
+        {"ders": "Biyoloji", "soru": "Hücrenin enerji santralı hangi orgeldir?", "cevap": "Mitokondri"},
+        {"ders": "Türkçe", "soru": "Yaban romanının yazarı kimdir?", "cevap": "Yakup Kadri Karaosmanoğlu"}
+    ]
+
+    if "card_idx" not in st.session_state:
+        st.session_state.card_idx = 0
+
+    cur_card = cards[st.session_state.card_idx]
+    
+    st.info(f"**Ders:** {cur_card['ders']}")
+    st.subheader(f"📌 {cur_card['soru']}")
+
+    if st.button("Cevabı Göster 👁️"):
+        st.success(f"**Cevap:** {cur_card['cevap']}")
+
+    if st.button("Rastgele Kart Getir 🔀"):
+        st.session_state.card_idx = random.randint(0, len(cards) - 1)
+
+
+# --- TAB 5: YÖK ATLAS HEDEF ROBOTU ---
+with tab5:
+    st.header("🏛️ YÖK Atlas Hedef & Bölüm Robotu")
+    st.caption("Hedeflediğiniz üniversite ve bölümün tahmini net gereksinimlerini görün.")
+
+    bolumler = {
+        "Tıp Fakültesi (Devlet)": {"TYT": 102, "AYT": 72},
+        "Bilgisayar Mühendisliği (İTÜ/ODTÜ)": {"TYT": 105, "AYT": 75},
+        "Hukuk Fakültesi (Devlet)": {"TYT": 85, "AYT": 58},
+        "Diş Hekimliği": {"TYT": 95, "AYT": 65},
+        "Psikoloji (Devlet)": {"TYT": 80, "AYT": 50}
+    }
+
+    secilen_bolum = st.selectbox("Hedef Bölümünüzü Seçin:", list(bolumler.keys()))
+    req_data = bolumler[secilen_bolum]
+
+    r1, r2 = st.columns(2)
+    r1.metric("Gerekli TYT Neti", f"{req_data['TYT']} Net")
+    r2.metric("Gerekli AYT Neti", f"{req_data['AYT']} Net")
+
+
+# --- TAB 6: ÖSYM TREND ANALİZİ ---
+with tab6:
+    st.header("📊 ÖSYM Soru Dağılımı ve Trend Analizi")
+    st.caption("Son 5 yılda ÖSYM'nin en çok soru sorduğu kilit konular.")
+
+    if plt:
+        konular = ["Paragraf", "Problemler", "Trigonometri", "Türev/İnt.", "Elektrik", "Sistemler"]
+        soru_sayisi = [26, 12, 3, 6, 3, 4]
+
+        fig, ax = plt.subplots(figsize=(9, 4))
+        ax.barh(konular, soru_sayisi, color="#2563eb")
+        ax.set_xlabel("Ortalama Çıkan Soru Sayısı")
+        ax.set_title("TYT & AYT Kritik Konu Soru Ağırlığı")
+        ax.grid(True, linestyle="--", alpha=0.3)
+        st.pyplot(fig)
+
+
+# --- TAB 7: HAFTALIK GÖREV LİSTESİ (TO-DO) ---
+with tab7:
     st.header("📋 Yapılacaklar & Görev Listesi")
     
     if "todo_list" not in st.session_state:
@@ -397,18 +462,16 @@ with tab4:
             st.success("Yeni görev eklendi!")
 
     st.markdown("---")
-    st.subheader("Görevleriniz:")
     for idx, item in enumerate(st.session_state.todo_list):
         st.session_state.todo_list[idx]["durum"] = st.checkbox(
             item["gorev"], value=item["durum"], key=f"todo_{idx}"
         )
 
 
-# --- TAB 5: HATA DEFTERİ ---
-with tab5:
+# --- TAB 8: HATA DEFTERİ ---
+with tab8:
     st.header("📕 Deneme Hata Defteri & Yanlış Analizi")
-    st.caption("Yanlış yaptığınız soruları ve nedenlerini kaydederek eksiklerinizi kapatın.")
-
+    
     if "hata_defteri" not in st.session_state:
         st.session_state.hata_defteri = []
 
@@ -424,115 +487,33 @@ with tab5:
             st.success("Hata defterinize eklendi!")
 
     if st.session_state.hata_defteri:
-        st.markdown("### 📋 Kayıtlı Hatalarınız")
         st.table(st.session_state.hata_defteri)
 
 
-# --- TAB 6: YKS PUAN HESAPLAYICI ---
-with tab6:
+# --- TAB 9: YKS PUAN HESAPLAYICI ---
+with tab9:
     st.header("🧮 YKS Tahmini Puan Hesaplama")
     
-    st.subheader("1. TYT Netleri")
-    col_t1, col_t2, col_t3, col_t4 = st.columns(4)
-    tyt_mat_d = col_t1.number_input("TYT Mat Doğru", 0, 40, 25)
-    tyt_mat_y = col_t1.number_input("TYT Mat Yanlış", 0, 40, 3)
-    
-    tyt_tr_d = col_t2.number_input("TYT Türkçe Doğru", 0, 40, 30)
-    tyt_tr_y = col_t2.number_input("TYT Türkçe Yanlış", 0, 40, 5)
-
-    tyt_fen_d = col_t3.number_input("TYT Fen Doğru", 0, 20, 12)
-    tyt_fen_y = col_t3.number_input("TYT Fen Yanlış", 0, 20, 4)
-
-    tyt_sos_d = col_t4.number_input("TYT Sosyal Doğru", 0, 20, 14)
-    tyt_sos_y = col_t4.number_input("TYT Sosyal Yanlış", 0, 20, 3)
-
-    tyt_net = (tyt_mat_d - tyt_mat_y*0.25) + (tyt_tr_d - tyt_tr_y*0.25) + (tyt_fen_d - tyt_fen_y*0.25) + (tyt_sos_d - tyt_sos_y*0.25)
-    
-    st.markdown("---")
-    st.subheader("2. AYT Netleri")
-    col_a1, col_a2, col_a3, col_a4 = st.columns(4)
-    ayt_mat_d = col_a1.number_input("AYT Mat Doğru", 0, 40, 20)
-    ayt_mat_y = col_a1.number_input("AYT Mat Yanlış", 0, 40, 4)
-
-    ayt_fiz_d = col_a2.number_input("AYT Fizik Doğru", 0, 14, 8)
-    ayt_fiz_y = col_a2.number_input("AYT Fizik Yanlış", 0, 14, 2)
-
-    ayt_kim_d = col_a3.number_input("AYT Kimya Doğru", 0, 13, 7)
-    ayt_kim_y = col_a3.number_input("AYT Kimya Yanlış", 0, 13, 2)
-
-    ayt_biy_d = col_a4.number_input("AYT Biyoloji Doğru", 0, 13, 8)
-    ayt_biy_y = col_a4.number_input("AYT Biyoloji Yanlış", 0, 13, 2)
-
-    ayt_say_net = (ayt_mat_d - ayt_mat_y*0.25) + (ayt_fiz_d - ayt_fiz_y*0.25) + (ayt_kim_d - ayt_kim_y*0.25) + (ayt_biy_d - ayt_biy_y*0.25)
+    col_t1, col_t2 = st.columns(2)
+    tyt_net = col_t1.number_input("Toplam TYT Netiniz", 0.0, 120.0, 75.0)
+    ayt_net = col_t2.number_input("Toplam AYT Netiniz", 0.0, 80.0, 45.0)
 
     tyt_puan = 100 + (tyt_net * 3.3)
-    say_puan = 100 + (tyt_net * 1.3) + (ayt_say_net * 3.0)
+    say_puan = 100 + (tyt_net * 1.3) + (ayt_net * 3.0)
 
-    st.markdown("---")
-    res_col1, res_col2, res_col3 = st.columns(3)
-    res_col1.metric("Toplam TYT Netiniz", f"{tyt_net:.2f} Net")
-    res_col2.metric("Tahmini TYT Puanı", f"{tyt_puan:.1f}")
-    res_col3.metric("Tahmini Sayısal Puanı", f"{say_puan:.1f}")
+    res_col1, res_col2 = st.columns(2)
+    res_col1.metric("Tahmini TYT Puanı", f"{tyt_puan:.1f}")
+    res_col2.metric("Tahmini Sayısal Puanı", f"{say_puan:.1f}")
 
 
-# --- TAB 7: NET TAKİP GRAFİĞİ ---
-with tab7:
-    st.header("📈 Deneme Net Takip Grafiği")
-    
-    if "net_data" not in st.session_state:
-        st.session_state.net_data = [{"Deneme": "Deneme 1", "TYT": 65, "AYT": 35}]
-
-    with st.form("net_form"):
-        f_col1, f_col2, f_col3 = st.columns(3)
-        d_name = f_col1.text_input("Deneme Adı / Tarihi", value=f"Deneme {len(st.session_state.net_data)+1}")
-        tyt_n = f_col2.number_input("TYT Netiniz", 0.0, 120.0, 70.0)
-        ayt_n = f_col3.number_input("AYT Netiniz", 0.0, 80.0, 40.0)
-        submit_net = st.form_submit_button("Neti Grafiğe Kaydet")
-
-        if submit_net:
-            st.session_state.net_data.append({"Deneme": d_name, "TYT": tyt_n, "AYT": ayt_n})
-            st.success("Netiniz grafik geçmişine eklendi!")
-
-    if plt and st.session_state.net_data:
-        denemeler = [d["Deneme"] for d in st.session_state.net_data]
-        tyt_list = [d["TYT"] for d in st.session_state.net_data]
-        ayt_list = [d["AYT"] for d in st.session_state.net_data]
-
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(denemeler, tyt_list, marker='o', label='TYT Net', color='#2563eb', linewidth=2.5)
-        ax.plot(denemeler, ayt_list, marker='s', label='AYT Net', color='#dc2626', linewidth=2.5)
-        ax.set_ylabel("Net Sayısı")
-        ax.set_title("Deneme Gelişim İstatistiği")
-        ax.legend()
-        ax.grid(True, linestyle='--', alpha=0.4)
-        st.pyplot(fig)
-
-
-# --- TAB 8: DİNAMİK KONU TAKİBİ ---
-with tab8:
-    st.header("✅ YKS Konu İlerleme Takibi")
-    
-    kt1, kt2 = st.columns(2)
-    completed_topics = 0
-    total_topics = 10
-
-    with kt1:
-        st.subheader("TYT & AYT Matematik")
-        if st.checkbox("Temel Kavramlar & Sayılar", value=True): completed_topics += 1
-        if st.checkbox("Bölünebilme & EBOB-EKOK"): completed_topics += 1
-        if st.checkbox("Problemler (Tümü)"): completed_topics += 1
-        if st.checkbox("Trigonometri"): completed_topics += 1
-        if st.checkbox("Türev & İntegral"): completed_topics += 1
-
-    with kt2:
-        st.subheader("Fen & Türkçe")
-        if st.checkbox("Paragrafta Anlam", value=True): completed_topics += 1
-        if st.checkbox("Yazım Kuralları & Noktalama"): completed_topics += 1
-        if st.checkbox("Kuvvet & Hareket (Fizik)"): completed_topics += 1
-        if st.checkbox("Kimyasal Türler (Kimya)"): completed_topics += 1
-        if st.checkbox("Hücre & Sistemler (Biyoloji)"): completed_topics += 1
-
-    st.markdown("---")
-    progress_val = completed_topics / total_topics
-    st.subheader(f"📊 Toplam Müfretad İlerlemeniz: %{int(progress_val*100)}")
-    st.progress(progress_val)
+# --- TAB 10: POMODORO & LO-FI DİNLENME ---
+with tab10:
+    st.header("⏱️ Pomodoro & Odaklanma Müzikleri")
+    p1, p2 = st.columns([1, 2])
+    with p1:
+        sure = st.number_input("Çalışma Süresi (Dakika):", value=25, min_value=1, max_value=90)
+        if st.button("Pomodoro Başlat"):
+            st.info(f"🎯 {sure} dakikalık odaklanma süresi başladı. Başarılar!")
+    with p2:
+        st.subheader("🔊 Odaklanma Sesleri (Lo-Fi)")
+        st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
