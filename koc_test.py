@@ -38,28 +38,28 @@ except ImportError:
     plt = None
 
 
-# --- Sayfa Yapılandırması ---
+# --- SAYFA YAPILANDIRMASI ---
 st.set_page_config(
-    page_title="YKS Koçu Pro | Dijital Hazırlık Platformu",
+    page_title="YKS Koçu Pro | Dijital Koçluk Platformu",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- Temaya Uyarlamalı Özel CSS ---
+# --- MODERN VE TEMA UYUMLU CSS ---
 st.markdown("""
 <style>
 .main .block-container {
     max-width: 100% !important;
-    padding: 1.5rem 2rem !important;
+    padding: 1.5rem 2.5rem !important;
 }
 
-/* Şeffaf ve Temaya Duyarlı Kartlar */
+/* Şeffaf Glassmorphism Kartlar */
 div[data-testid="stMetric"] {
     background-color: rgba(255, 255, 255, 0.04) !important;
     border: 1px solid rgba(128, 128, 128, 0.2) !important;
-    border-radius: 12px !important;
-    padding: 14px !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
     backdrop-filter: blur(10px);
 }
 
@@ -69,19 +69,19 @@ div[data-testid="stMetricLabel"] p {
 }
 
 div[data-testid="stMetricValue"] div {
-    font-size: 1.7rem !important;
+    font-size: 1.8rem !important;
     font-weight: 700 !important;
 }
 
-/* Modern Butonlar */
+/* Buton Tasarımları */
 .stButton button, .stDownloadButton button {
-    border-radius: 8px !important;
+    border-radius: 10px !important;
     font-weight: 600 !important;
     background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
     color: white !important;
     border: none !important;
-    padding: 0.5rem 1.2rem !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    padding: 0.5rem 1.25rem !important;
+    transition: all 0.2s ease !important;
 }
 
 .stButton button:hover {
@@ -89,7 +89,7 @@ div[data-testid="stMetricValue"] div {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-/* Tab Yapısı */
+/* Tab Tasarımı */
 .stTabs [data-baseweb="tab-list"] {
     gap: 8px;
     border-bottom: 2px solid rgba(128, 128, 128, 0.2);
@@ -115,7 +115,7 @@ MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 MAX_MEMORY_CHARS = 4000
 
 
-# --- Yardımcı Fonksiyonlar ---
+# --- YARDIMCI FONKSİYONLAR ---
 def configure_gemini() -> bool:
     if genai is None:
         st.error("Gemini paketi yüklü değil. `pip install google-generativeai` komutunu çalıştırın.")
@@ -213,7 +213,7 @@ def generate_schedule_image(schedule_data: dict) -> io.BytesIO | None:
 st.sidebar.title("🎓 YKS Koçu Pro")
 user_key = st.sidebar.text_input("Öğrenci Adı / ID:", value="öğrenci1")
 
-# YKS Geri Sayım Widget'ı
+# YKS Geri Sayım
 st.sidebar.markdown("---")
 st.sidebar.subheader("⏳ YKS Geri Sayım")
 yks_date = date(2027, 6, 20)
@@ -223,48 +223,52 @@ if kalan_gun > 0:
 else:
     st.sidebar.success("Sınav Günü Geldi! Başarılar!")
 
-# Günlük Soru Sayacı Widget'ı
+# Günlük Soru Hedef Takibi
 st.sidebar.markdown("---")
-st.sidebar.subheader("📝 Günlük Soru Sayacı")
+st.sidebar.subheader("📝 Günlük Soru Hedefi")
 if "toplam_soru" not in st.session_state:
     st.session_state.toplam_soru = 0
 
+gunluk_hedef = st.sidebar.number_input("Günlük Hedef Soru Sayısı:", value=200, step=25)
 eklenen_soru = st.sidebar.number_input("Çözülen Soru Ekleyin:", min_value=0, step=10, value=0)
+
 if st.sidebar.button("Sayıyı Ekle"):
     st.session_state.toplam_soru += eklenen_soru
-    st.sidebar.success(f"Toplam: {st.session_state.toplam_soru} soru kaydedildi!")
+    st.sidebar.success(f"Güncel Toplam: {st.session_state.toplam_soru} Soru")
 
-st.sidebar.metric("Bugün Çözülen Toplam Soru", f"{st.session_state.toplam_soru} Soru")
+hedef_yuzde = min(1.0, st.session_state.toplam_soru / max(1, gunluk_hedef))
+st.sidebar.progress(hedef_yuzde, text=f"Hedef Tamamlama: %{int(hedef_yuzde*100)}")
 
 st.sidebar.markdown("---")
-st.sidebar.info("💡 **İpucu:** Yapamadığınız soruların fotoğrafını 'Soru Çözücü' sekmesinden yükleyebilirsiniz.")
+st.sidebar.info("💡 **İpucu:** Yapamadığınız soruları 'Hata Defteri' sekmesine kaydederek periyodik olarak tekrar edin.")
 
 
-# --- ANA SAYFA ÜST METRİKLER ---
+# --- ANA SAYFA METRİKLERİ ---
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 col_m1.metric("📌 Öğrenci Profil", user_key.capitalize())
 col_m2.metric("💬 Koçluk Mesajları", f"{len(st.session_state.get('messages', []))} Mesaj")
-col_m3.metric("✏️ Çözülen Soru", f"{st.session_state.toplam_soru} Soru")
+col_m3.metric("✏️ Çözülen Soru", f"{st.session_state.toplam_soru} / {gunluk_hedef}")
 col_m4.metric("🎯 Hedef Derece", "Top 10K")
 
 st.markdown("---")
 
-# --- ANA TAB YAPISI (7 KAPSAMLI MODÜL) ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+# --- ANA TAB YAPISI (8 KAPSAMLI MODÜL) ---
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "💬 Yapay Zeka Koç", 
     "📸 Görsel Soru Çözücü",
     "📅 Çalışma Programı", 
+    "📋 Görev Listesi (To-Do)",
+    "📕 Hata Defteri & Analiz",
     "🧮 YKS Puan Hesapla",
     "📊 Net Takip Grafiği", 
-    "⏱️ Pomodoro Zamanlayıcı",
-    "✅ Konu Takip Listesi"
+    "✅ Detaylı Konu Takibi"
 ])
 
 
 # --- TAB 1: YAPAY ZEKA KOÇ ---
 with tab1:
     st.header("YKS Koçunuz ile Sohbet Edin")
-    st.caption("Eksik konularınız, ders calışma taktikleri ve motivasyon için sorularınızı sorun.")
+    st.caption("Netleriniz, ders çalışma taktikleri ve motivasyon için sorularınızı sorun.")
 
     if "messages" not in st.session_state:
         st.session_state.messages = [
@@ -316,16 +320,16 @@ with tab1:
 # --- TAB 2: GÖRSEL SORU ÇÖZÜCÜ ---
 with tab2:
     st.header("📸 Yapay Zeka ile Yapamadığın Soruyu Çözdür")
-    st.write("Yapamadığınız matematik, fizik, kimya veya herhangi bir YKS sorusunun fotoğrafını yükleyin.")
+    st.write("Yapamadığınız sorunun fotoğrafını yükleyin, yapay zeka adım adım açıklasın.")
 
     uploaded_file = st.file_uploader("Soru Görseli Yükleyin (JPG, PNG)", type=["jpg", "jpeg", "png"])
-    user_question = st.text_input("Sorunuzla ilgili eklemek istediğiniz bir not var mı?", "Bu sorunun adım adım çözümünü ve cevabını açıklar mısın?")
+    user_question = st.text_input("Sorunuzla ilgili eklemek istediğiniz not:", "Bu sorunun adım adım çözümünü ve cevabını açıklar mısın?")
 
     if uploaded_file and st.button("Soruyu Analiz Et & Çöz ✨"):
         if configure_gemini() and Image is not None:
             try:
                 img = Image.open(uploaded_file)
-                st.image(img, caption="Yüklenen Soru", width=400)
+                st.image(img, caption="Yüklenen Soru", width=380)
 
                 model = get_model()
                 with st.spinner("Soru inceleniyor ve çözüm adımları hazırlanıyor..."):
@@ -335,7 +339,7 @@ with tab2:
             except Exception as e:
                 st.error(f"Görsel işlenirken bir hata oluştu: {e}")
         elif Image is None:
-            st.error("Görsel işleme kütüphanesi (Pillow) eksik. Lütfen `pip install pillow` kurun.")
+            st.error("Pillow kütüphanesi eksik. `pip install pillow` kurun.")
 
 
 # --- TAB 3: ÇALIŞMA PROGRAMI ---
@@ -368,18 +372,66 @@ with tab3:
                         img_buf = generate_schedule_image(schedule_dict)
                         if img_buf:
                             st.image(img_buf, caption="Haftalık Görsel Programınız")
-                            st.download_button("Programı Görsel Olarak İndir (PNG)", data=img_buf, file_name="yks_program.png", mime="image/png")
+                            st.download_button("Programı İndir (PNG)", data=img_buf, file_name="yks_program.png", mime="image/png")
                     else:
                         st.write(res.text)
                 except Exception as e:
                     st.error(f"Hata oluştu: {e}")
 
 
-# --- TAB 4: YKS PUAN HESAPLAYICI ---
+# --- TAB 4: HAFTALIK GÖREV LİSTESİ (TO-DO) ---
 with tab4:
-    st.header("🧮 YKS Tahmini Puan Hesaplama")
-    st.caption("Netlerinizi girerek yaklaşık ÖSYM puan türlerinizi hesaplayın.")
+    st.header("📋 Yapılacaklar & Görev Listesi")
+    
+    if "todo_list" not in st.session_state:
+        st.session_state.todo_list = [
+            {"gorev": "Matematik Türev 2 Test Çöz", "durum": False},
+            {"gorev": "Paragraf 30 Soru Çöz", "durum": True}
+        ]
 
+    with st.form("todo_form"):
+        y_gorev = st.text_input("Yeni Görev / Hedef Ekleyin:")
+        submit_todo = st.form_submit_button("Görev Ekle")
+        if submit_todo and y_gorev:
+            st.session_state.todo_list.append({"gorev": y_gorev, "durum": False})
+            st.success("Yeni görev eklendi!")
+
+    st.markdown("---")
+    st.subheader("Görevleriniz:")
+    for idx, item in enumerate(st.session_state.todo_list):
+        st.session_state.todo_list[idx]["durum"] = st.checkbox(
+            item["gorev"], value=item["durum"], key=f"todo_{idx}"
+        )
+
+
+# --- TAB 5: HATA DEFTERİ ---
+with tab5:
+    st.header("📕 Deneme Hata Defteri & Yanlış Analizi")
+    st.caption("Yanlış yaptığınız soruları ve nedenlerini kaydederek eksiklerinizi kapatın.")
+
+    if "hata_defteri" not in st.session_state:
+        st.session_state.hata_defteri = []
+
+    with st.form("hata_form"):
+        h_col1, h_col2 = st.columns(2)
+        h_ders = h_col1.selectbox("Ders:", ["Matematik", "Fizik", "Kimya", "Biyoloji", "Türkçe", "Tarih", "Coğrafya"])
+        h_neden = h_col2.selectbox("Hata Nedeni:", ["Bilgi Eksikliği", "Dikkat Hatası", "Süre Yetmedi", "Yanlış Yorumlama"])
+        h_konu = st.text_input("Soru Konusu / Detayı:", "Örn: Trigonometri Toplam-Fark Formülü")
+        submit_hata = st.form_submit_button("Hatayı Kaydet")
+
+        if submit_hata and h_konu:
+            st.session_state.hata_defteri.append({"Ders": h_ders, "Konu": h_konu, "Neden": h_neden, "Tarih": datetime.now().strftime("%d.%m.%Y")})
+            st.success("Hata defterinize eklendi!")
+
+    if st.session_state.hata_defteri:
+        st.markdown("### 📋 Kayıtlı Hatalarınız")
+        st.table(st.session_state.hata_defteri)
+
+
+# --- TAB 6: YKS PUAN HESAPLAYICI ---
+with tab6:
+    st.header("🧮 YKS Tahmini Puan Hesaplama")
+    
     st.subheader("1. TYT Netleri")
     col_t1, col_t2, col_t3, col_t4 = st.columns(4)
     tyt_mat_d = col_t1.number_input("TYT Mat Doğru", 0, 40, 25)
@@ -413,7 +465,6 @@ with tab4:
 
     ayt_say_net = (ayt_mat_d - ayt_mat_y*0.25) + (ayt_fiz_d - ayt_fiz_y*0.25) + (ayt_kim_d - ayt_kim_y*0.25) + (ayt_biy_d - ayt_biy_y*0.25)
 
-    # Tahmini Puan Hesaplama Formülü
     tyt_puan = 100 + (tyt_net * 3.3)
     say_puan = 100 + (tyt_net * 1.3) + (ayt_say_net * 3.0)
 
@@ -424,8 +475,8 @@ with tab4:
     res_col3.metric("Tahmini Sayısal Puanı", f"{say_puan:.1f}")
 
 
-# --- TAB 5: NET TAKİP GRAFİĞİ ---
-with tab5:
+# --- TAB 7: NET TAKİP GRAFİĞİ ---
+with tab7:
     st.header("📈 Deneme Net Takip Grafiği")
     
     if "net_data" not in st.session_state:
@@ -457,71 +508,31 @@ with tab5:
         st.pyplot(fig)
 
 
-# --- TAB 6: POMODORO ---
-with tab6:
-    st.header("⏱️ Odaklanma & Pomodoro Alanı")
-    p_col1, p_col2 = st.columns([1, 2])
-    with p_col1:
-        sure = st.number_input("Çalışma Süresi (Dakika):", value=25, min_value=1, max_value=90)
-        mola = st.number_input("Mola Süresi (Dakika):", value=5, min_value=1, max_value=30)
-        if st.button("Pomodoro Oturumunu Başlat"):
-            st.info(f"🎯 {sure} dakikalık odaklanma oturumu başladı. Telefonunuzu uzaklaştırın ve derse odaklanın!")
-    with p_col2:
-        st.markdown("""
-        ### 💡 Verimli Çalışma Tavsiyeleri:
-        * **25 Dk Çalışma + 5 Dk Mola:** Zihninizin odaklanma süresini zirvede tutar.
-        * **Mola Sırasında:** Ekrandan uzaklaşın, gözlerinizi dinlendirin ve su için.
-        * **Her 4 Pomodoro Sonrasında:** 20-30 dakikalık uzun mola verin.
-        """)
-
-
-# --- TAB 7: DETAYLI KONU TAKİP ---
-with tab7:
-    st.header("✅ YKS Kapsamlı Müfretad & Konu Takibi")
+# --- TAB 8: DİNAMİK KONU TAKİBİ ---
+with tab8:
+    st.header("✅ YKS Konu İlerleme Takibi")
     
-    kt1, kt2, kt3 = st.tabs(["Matematik & Geometri", "Fen Bilimleri", "Türkçe & Sosyal"])
+    kt1, kt2 = st.columns(2)
+    completed_topics = 0
+    total_topics = 10
 
     with kt1:
-        c_m1, c_m2 = st.columns(2)
-        with c_m1:
-            st.subheader("TYT Matematik")
-            st.checkbox("Temel Kavramlar & Sayı Basamakları", value=True)
-            st.checkbox("Bölme & Bölünebilme, EBOB-EKOK")
-            st.checkbox("Rasyonel & Mutlak Değerli İfadeler")
-            st.checkbox("Oran-Orantı & Problemler (Tümü)")
-            st.checkbox("Fonksiyonlar & Mantık")
-        with c_m2:
-            st.subheader("AYT Matematik")
-            st.checkbox("Polinomlar & 2. Dereceden Denklemler")
-            st.checkbox("Trigonometri")
-            st.checkbox("Logaritma & Diziler")
-            st.checkbox("Limit & Süreklilik")
-            st.checkbox("Türev & İntegral")
+        st.subheader("TYT & AYT Matematik")
+        if st.checkbox("Temel Kavramlar & Sayılar", value=True): completed_topics += 1
+        if st.checkbox("Bölünebilme & EBOB-EKOK"): completed_topics += 1
+        if st.checkbox("Problemler (Tümü)"): completed_topics += 1
+        if st.checkbox("Trigonometri"): completed_topics += 1
+        if st.checkbox("Türev & İntegral"): completed_topics += 1
 
     with kt2:
-        c_f1, c_f2 = st.columns(2)
-        with c_f1:
-            st.subheader("Fizik")
-            st.checkbox("Fizik Bilimine Giriş & Madde")
-            st.checkbox("Kuvvet, Hareket & Enerji")
-            st.checkbox("Elektrik & Optik")
-            st.checkbox("Atışlar & Çembersel Hareket (AYT)")
-        with c_f2:
-            st.subheader("Kimya & Biyoloji")
-            st.checkbox("Kimyasal Türler Arası Etkileşimler")
-            st.checkbox("Mol Kavramı & Tepkimeler")
-            st.checkbox("Hücre & Canlıların Sınıflandırılması")
-            st.checkbox("Sistemler (Anatomi AYT)")
+        st.subheader("Fen & Türkçe")
+        if st.checkbox("Paragrafta Anlam", value=True): completed_topics += 1
+        if st.checkbox("Yazım Kuralları & Noktalama"): completed_topics += 1
+        if st.checkbox("Kuvvet & Hareket (Fizik)"): completed_topics += 1
+        if st.checkbox("Kimyasal Türler (Kimya)"): completed_topics += 1
+        if st.checkbox("Hücre & Sistemler (Biyoloji)"): completed_topics += 1
 
-    with kt3:
-        c_s1, c_s2 = st.columns(2)
-        with c_s1:
-            st.subheader("Türkçe")
-            st.checkbox("Paragrafta Anlam & Yorum", value=True)
-            st.checkbox("Yazım Kuralları & Noktalama")
-            st.checkbox("Ses Bilgisi & Sözcük Türleri")
-        with c_s2:
-            st.subheader("Tarih & Coğrafya")
-            st.checkbox("Tarih Bilimi & İlk Çağ Uygarlıkları")
-            st.checkbox("Milli Mücadele Dönemi")
-            st.checkbox("Harita Bilgisi & İklim Tipleri")
+    st.markdown("---")
+    progress_val = completed_topics / total_topics
+    st.subheader(f"📊 Toplam Müfretad İlerlemeniz: %{int(progress_val*100)}")
+    st.progress(progress_val)
