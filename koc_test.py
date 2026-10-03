@@ -18,7 +18,11 @@ from urllib.parse import urlparse
 
 import requests
 import streamlit as st
-from bs4 import BeautifulSoup
+
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
 
 try:
     import google.generativeai as genai
@@ -118,7 +122,9 @@ def build_memory_context(user_key: str) -> str:
 
 
 def web_search_duckduckgo(query: str, max_results: int = 3) -> list[dict]:
-    """DuckDuckGo HTML üzerinden basit web araması yapar."""
+    """DuckDuckGo HTML üzerinden basit web araması yapmayı dener."""
+    if BeautifulSoup is None:
+        return []
     url = "https://html.duckduckgo.com/html/"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
     try:
@@ -192,7 +198,6 @@ with tab1:
             model = get_model()
             hafiza_ozeti = build_memory_context(user_key)
 
-            # Güncel YKS/ÖSYM bilgisi gerekebilecek sorular için Web Arama Desteği
             search_context = ""
             if any(w in prompt.lower() for w in ["tarih", "baraj", "kılavuz", "ösym", "kaç gün", "müfredat"]):
                 search_results = web_search_duckduckgo(f"YKS {prompt}")
