@@ -40,90 +40,73 @@ except ImportError:
 
 # Sayfa Yapılandırması
 st.set_page_config(
-    page_title="YKS Koçu Pro - Yapay Zeka Rehberlik",
+    page_title="YKS Koçu Pro",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Gelişmiş CSS Tasarımı & Genişlik Ayarları
+# Koyu/Açık Tema Uyumlu & Modern CSS
 st.markdown("""
 <style>
-:root { 
-    --primary: #1e3a8a; 
-    --primary-hover: #1d4ed8;
-    --accent: #3b82f6; 
-    --bg-soft: #f8fafc; 
-    --card-border: #e2e8f0;
-    --text-dark: #0f172a;
-}
-
-/* Tam Genişlik ve İç Boşluk Düzenlemesi */
+/* Tam Genişlik Düzenlemesi */
 .main .block-container {
     max-width: 100% !important;
     padding: 1.5rem 2.5rem !important;
 }
 
-.main { 
-    color: var(--text-dark); 
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+/* Şeffaf ve Modern Kart Yapısı (Tema ile Uyumlu) */
+div[data-testid="stMetric"] {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(128, 128, 128, 0.2) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    backdrop-filter: blur(10px);
 }
 
-/* Başlık Stilleri */
-h1, h2, h3 { 
-    color: var(--primary); 
-    font-weight: 700;
-    letter-spacing: -0.5px;
+/* Metrik Metinlerinin Temaya Göre Belirginleşmesi */
+div[data-testid="stMetricLabel"] p {
+    font-weight: 600 !important;
+    opacity: 0.9 !important;
 }
 
-/* Buton Tasarımları */
-.stButton button, .stDownloadButton button { 
-    border-radius: 10px !important; 
-    font-weight: 600 !important; 
-    transition: all 0.2s ease !important;
-    background: linear-gradient(135deg, var(--primary), var(--accent)) !important;
+div[data-testid="stMetricValue"] div {
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+}
+
+/* Buton Tasarımı */
+.stButton button, .stDownloadButton button {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    background: #2563eb !important;
     color: white !important;
     border: none !important;
     padding: 0.5rem 1.25rem !important;
+    transition: background 0.2s ease !important;
 }
 
-.stButton button:hover { 
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-/* Kart & Metrik Stilleri */
-div[data-testid="stMetric"] { 
-    background: white; 
-    border: 1px solid var(--card-border); 
-    border-radius: 14px; 
-    padding: 16px; 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-/* Yan Menü (Sidebar) */
-[data-testid="stSidebar"] { 
-    background-color: #f1f5f9; 
-    border-right: 1px solid var(--card-border);
+.stButton button:hover {
+    background: #1d4ed8 !important;
 }
 
 /* Tab Tasarımı */
-.stTabs [data-baseweb="tab-list"] { 
-    gap: 12px; 
-    border-bottom: 2px solid var(--card-border);
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    border-bottom: 2px solid rgba(128, 128, 128, 0.2);
 }
 
-.stTabs [data-baseweb="tab"] { 
-    border-radius: 10px 10px 0 0; 
+.stTabs [data-baseweb="tab"] {
+    border-radius: 8px 8px 0 0;
     font-weight: 600;
-    padding: 10px 20px;
+    padding: 10px 16px;
 }
 
 /* Chat Mesaj Kutuları */
-[data-testid="stChatMessage"] { 
-    border-radius: 14px; 
-    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-    margin-bottom: 12px;
+[data-testid="stChatMessage"] {
+    border-radius: 12px;
+    border: 1px solid rgba(128, 128, 128, 0.15);
+    margin-bottom: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -227,15 +210,14 @@ def generate_schedule_image(schedule_data: dict) -> io.BytesIO | None:
     return buf
 
 
-# --- YAN MENÜ (SIDEBAR) & GERİ SAYIM ---
-st.sidebar.image("https://img.icons8.com/illustrations/100/graduation-cap.png", width=80)
-st.sidebar.title("YKS Koçu Pro")
+# --- YAN MENÜ (SIDEBAR) ---
+st.sidebar.title("🎓 YKS Koçu Pro")
 user_key = st.sidebar.text_input("Öğrenci Adı / ID:", value="öğrenci1")
 
 # YKS Geri Sayım Widget'ı
 st.sidebar.markdown("---")
 st.sidebar.subheader("⏳ YKS Geri Sayım")
-yks_date = date(2027, 6, 20)  # Tahmini sınav tarihi
+yks_date = date(2027, 6, 20)
 kalan_gun = (yks_date - date.today()).days
 if kalan_gun > 0:
     st.sidebar.metric("YKS 2027'ye Kalan Gün", f"{kalan_gun} Gün")
@@ -378,7 +360,7 @@ with tab3:
         ayt_list = [d["AYT"] for d in st.session_state.net_data]
 
         fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(denemeler, tyt_list, marker='o', label='TYT Net', color='#1d4ed8', linewidth=2)
+        ax.plot(denemeler, tyt_list, marker='o', label='TYT Net', color='#2563eb', linewidth=2)
         ax.plot(denemeler, ayt_list, marker='s', label='AYT Net', color='#dc2626', linewidth=2)
         ax.set_ylabel("Net Sayısı")
         ax.set_title("Net Gelişim Grafiği")
