@@ -14,7 +14,197 @@ from bs4 import BeautifulSoup
 # --------------------- ÖZEL CSS (MODERN TASARIM) ---------------------
 st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
 
+st.markdown(""""""YKS Koçu - Streamlit uygulaması.
+
+Kurulum: pip install streamlit google-generativeai requests beautif"""YKS Koçu - Streamlit uygulaması.
+
+Kurulum: pip install streamlit google-generativeai requests beautifulsoup4
+İsteğe bağlı görsel program çıktısı: pip install matplotlib pillow
+API anahtarı: .streamlit/secrets.toml içine GEMINI_API_KEY = "..."
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import os
+import re
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse
+
+import requests
+import streamlit as st
+from bs4 import BeautifulSoup
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
+
+# Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
+st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
+
 st.markdown("""
+<style>
+:root { --ink:#172554; --brand:#334e8c; --soft:#f3f6fb; --line:#dbe3ef; }
+.main { color:var(--ink); font-family:'Segoe UI',Roboto,sans-serif; }
+h1,h2,h3 { color:var(--brand); font-weight:650; }
+.stButton button,.stDownloadButton button { border-radius:10px; font-weight:600; transition:.18s ease; }
+.stButton button { background:var(--brand); color:white; border:0; }
+.stButton button:hover { background:#253b70; color:white; transform:translateY(-1px); }
+.stTextInput input,.stTextArea textarea { border-radius:9px; border-color:var(--line); }
+[data-testid="stSidebar"] { background:#f7f9fc; }
+[data-testid="stMetric"] { background:white; border:1px solid var(--line); border-radius:12px; padding:12px; }
+.stTabs [data-baseweb="tab-list"] { gap:8px; }
+.stTabs [data-baseweb="tab"] { border-radius:8px 8px 0 0; }
+[data-testid="stChatMessage"] { border-radius:12px; }
+@media(max-width:650px) { .stTabs [data-baseweb="tab"] { padding:6px 9px; } }
+</style>
+""", unsafe_allow_html=True)
+
+MEMORY_DIR = Path(__file__).resolve().parent / "yks_hafiza_kayitlari"
+MAX_MEMORY_CHARS = 4000
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def configure_gemini() -> bool:
+    """API anahtarını secrets veya ortam değişkeninden alıp Gemini'yi hazırlar."""
+    if genai is None:
+        st.error("Gemini paketi bulunamadı. `pip install google-generativeai` komutunu çalıştırın.")
+        return False
+    try:
+        key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    except (FileNotFoundError, AttributeError):
+        key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        return False
+    genai.configure(api_key=key)
+    return True
+
+
+def get_model():
+    return genai.GenerativeModel("gemini-2.5-flash")
+
+
+def get_memory_filepath(user_key: str) -> Path:
+    digest = hashlib.sha256(user_key.strip().casefold().encode("utf-8")).hexdigest()[:20]
+    return MEMORY_DIR / f"hafiza_{digest}.jsonl"
+
+
+def load_memory(user_key: str) -> list[dict]:
+    path = get_memory_filepath(user_key)
+    records = []
+    if not path.exists():
+        return records
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:ulsoup4
+İsteğe bağlı görsel program çıktısı: pip install matplotlib pillow
+API anahtarı: .streamlit/secrets.toml içine GEMINI_API_KEY = "..."
+"""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+import os
+import re
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse
+
+import requests
+import streamlit as st
+from bs4 import BeautifulSoup
+
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
+
+# Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
+st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
+
+st.markdown("""
+<style>
+:root { --ink:#172554; --brand:#334e8c; --soft:#f3f6fb; --line:#dbe3ef; }
+.main { color:var(--ink); font-family:'Segoe UI',Roboto,sans-serif; }
+h1,h2,h3 { color:var(--brand); font-weight:650; }
+.stButton button,.stDownloadButton button { border-radius:10px; font-weight:600; transition:.18s ease; }
+.stButton button { background:var(--brand); color:white; border:0; }
+.stButton button:hover { background:#253b70; color:white; transform:translateY(-1px); }
+.stTextInput input,.stTextArea textarea { border-radius:9px; border-color:var(--line); }
+[data-testid="stSidebar"] { background:#f7f9fc; }
+[data-testid="stMetric"] { background:white; border:1px solid var(--line); border-radius:12px; padding:12px; }
+.stTabs [data-baseweb="tab-list"] { gap:8px; }
+.stTabs [data-baseweb="tab"] { border-radius:8px 8px 0 0; }
+[data-testid="stChatMessage"] { border-radius:12px; }
+@media(max-width:650px) { .stTabs [data-baseweb="tab"] { padding:6px 9px; } }
+</style>
+""", unsafe_allow_html=True)
+
+MEMORY_DIR = Path(__file__).resolve().parent / "yks_hafiza_kayitlari"
+MAX_MEMORY_CHARS = 4000
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def configure_gemini() -> bool:
+    """API anahtarını secrets veya ortam değişkeninden alıp Gemini'yi hazırlar."""
+    if genai is None:
+        st.error("Gemini paketi bulunamadı. `pip install google-generativeai` komutunu çalıştırın.")
+        return False
+    try:
+        key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+    except (FileNotFoundError, AttributeError):
+        key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        return False
+    genai.configure(api_key=key)
+    return True
+
+
+def get_model():
+    return genai.GenerativeModel("gemini-2.5-flash")
+
+
+def get_memory_filepath(user_key: str) -> Path:
+    digest = hashlib.sha256(user_key.strip().casefold().encode("utf-8")).hexdigest()[:20]
+    return MEMORY_DIR / f"hafiza_{digest}.jsonl"
+
+
+def load_memory(user_key: str) -> list[dict]:
+    path = get_memory_filepath(user_key)
+    records = []
+    if not path.exists():
+        return records
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            for line in handle:
 <style>
     /* Genel yazı tipi ve renk */
     .main {
