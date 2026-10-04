@@ -51,6 +51,7 @@ except ImportError:
 
 # Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
 st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
+st.set_page_config(page_title="ANKA · YKS Çalışma Stüdyosu", page_icon="🔥", layout="wide")
 
 st.markdown("""
 <style>
@@ -873,6 +874,7 @@ def render_dashboard(user_id: int, username: str) -> None:
     <section class="hero-card">
       <div class="hero-copy">
         <div class="hero-eyebrow">JARVIS · KİŞİSEL YKS STÜDYOSU</div>
+      <div class="hero-eyebrow">ANKA · KİŞİSEL YKS STÜDYOSU</div>
         <h1>Selam {safe_name}.<br>Bugün hedeflerine bir adım daha.</h1>
         <p>Planını sade tut, ilerlemeni gör ve sıradaki doğru işe odaklan. Küçük ama düzenli adımlar büyük fark yaratır.</p>
         <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y} &nbsp;·&nbsp; Bugünün çalışma alanı</span>
@@ -887,6 +889,14 @@ def render_dashboard(user_id: int, username: str) -> None:
         <path d="M128 127l16 14 34-37" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
         <circle cx="229" cy="54" r="14" fill="#ffce73"/><path d="M229 46v16M221 54h16" stroke="#20365d" stroke-width="3" stroke-linecap="round"/>
         <circle cx="90" cy="160" r="8" fill="#79e0bd"/><circle cx="243" cy="148" r="6" fill="#b8c7ff"/>
+      </svg>
+      <svg class="hero-art phoenix-hero" viewBox="0 0 300 220" role="img" aria-label="Kızıl ve mor alevlerden doğan Anka kuşu çizimi">
+        <defs><linearGradient id="phoenixWing" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffc274"/><stop offset=".48" stop-color="#ff665f"/><stop offset="1" stop-color="#c878ff"/></linearGradient><radialGradient id="phoenixAura"><stop stop-color="#ff9970" stop-opacity=".45"/><stop offset="1" stop-color="#a443d3" stop-opacity="0"/></radialGradient></defs>
+        <circle cx="154" cy="113" r="101" fill="url(#phoenixAura)"/><circle cx="154" cy="113" r="76" fill="#ffffff08" stroke="#ffffff25"/>
+        <path d="M148 158c-21-16-37-36-43-66 20 17 37 23 53 24-10-27-6-52 11-78 4 30 16 49 36 62-1-27 10-50 34-68-7 40-1 68 20 92-24-7-43-17-56-31 7 26 2 49-14 70-7-23-18-39-34-48 0 18-2 32-7 43Z" fill="url(#phoenixWing)" opacity=".94"/>
+        <path d="M146 91c-14-17-28-29-47-38 8 19 14 34 18 50-17-10-35-14-57-13 18 13 31 28 38 45-17-5-33-6-50-2 20 8 36 18 49 32-12 1-24 5-36 12 22 0 42 4 58 14M162 91c14-17 28-29 47-38-8 19-14 34-18 50 17-10 35-14 57-13-18 13-31 28-38 45 17-5 33-6 50-2-20 8-36 18-49 32 12 1 24 5 36 12-22 0-42 4-58 14" fill="none" stroke="url(#phoenixWing)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M149 163c-10 11-18 22-24 35m38-35c10 11 18 22 24 35M154 68c-5-13-4-25 3-38 9 14 10 27 3 39" fill="none" stroke="#ffdc9c" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="153" cy="107" r="4" fill="#fff4d6"/><path d="m158 106 12 3-11 5" fill="#ffe0a4"/>
       </svg>
     </section>
     """, unsafe_allow_html=True)
@@ -976,6 +986,7 @@ def render_dashboard(user_id: int, username: str) -> None:
                 label = " · ".join(part for part in [item.get("subject", "Ders"), item.get("topic", ""), item.get("target", "")] if part)
                 state = "✓" if item.get("done") else "○"
                 st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#3858d6'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#c94355'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
                 if not item.get("done"):
                     task_actions = st.columns(2)
                     if task_actions[0].button("✓ Tamamlandı", key=f"dash_done_{item.get('id', task_index)}", use_container_width=True):
@@ -1070,9 +1081,19 @@ def render_focus_timer(user_id: int) -> None:
         st.rerun()
 
 
+def phoenix_mark_svg(size: int = 36) -> str:
+    """Small original line-art phoenix mark used throughout the interface."""
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 64 64" role="img" aria-label="Anka kuşu" '
+            'xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3.4" '
+            'stroke-linecap="round" stroke-linejoin="round"><path d="M32 54c-3-10-2-19 1-28 1 8 5 12 10 15-1-11 4-18 11-24-1 13 3 21 7 26-5-1-9-2-13-5 1 7-1 13-5 18"/>'
+            '<path d="M30 54c3-10 2-19-1-28-1 8-5 12-10 15 1-11-4-18-11-24 1 13-3 21-7 26 5-1 9-2 13-5-1 7 1 13 5 18"/>'
+            '<path d="M32 28c-4-6-4-12 0-19 4 7 4 13 0 19Zm-8 30c3-3 5-6 8-10 3 4 5 7 8 10M26 59h12"/></svg>')
+
+
 def render_login() -> None:
     theme_picker_columns = st.columns([1, 1, 1])
     theme_mode = theme_picker_columns[1].selectbox("Tema", ["Açık", "Koyu"], key="theme_mode", label_visibility="collapsed")
+    theme_mode = theme_picker_columns[1].selectbox("Tema", ["Açık", "Koyu"], index=1, key="theme_mode", label_visibility="collapsed")
     background_path = Path(__file__).resolve().parent / "assets" / "login_mountains.png"
     background_rule = ""
     mountain_rules = ""
@@ -1135,6 +1156,30 @@ def render_login() -> None:
     {auth_theme_css}
     </style>''', unsafe_allow_html=True)
     st.markdown('<div class="auth-brand"><span>J</span> JARVIS · YKS STUDIO</div>', unsafe_allow_html=True)
+    </style>''', unsafe_allow_html=True)
+    st.markdown("""<style>
+    html,body,[data-testid="stAppViewContainer"] { background:#110e19!important; }
+    [data-testid="stAppViewContainer"] { background-image:radial-gradient(ellipse at 78% 20%,#8f42ba35,transparent 35%),radial-gradient(ellipse at 18% 84%,#e3444027,transparent 36%),linear-gradient(145deg,#100d17,#201324 52%,#17101b)!important; }
+    [data-testid="stVerticalBlockBorderWrapper"] { background:linear-gradient(150deg,#251829e8,#17141eea)!important;border-color:#b46bba55!important;box-shadow:0 32px 100px #08050dba,0 0 55px #b2488b15!important; }
+    .auth-brand { gap:.7rem;color:#fff7ff!important;letter-spacing:.13em!important; }
+    .phoenix-brand-icon { display:grid;place-items:center;width:48px;height:48px;border-radius:17px;color:#ffe3bf;background:linear-gradient(145deg,#a148cf,#e54a50 72%,#f59e59);box-shadow:0 0 32px #e34c6852,inset 0 1px 0 #fff8; }
+    .auth-title { text-shadow:0 0 30px #bf5bcb35!important; }
+    [data-testid="stForm"] button { background:linear-gradient(100deg,#a04ac9,#d84464 58%,#f0784d)!important;color:#fff!important; }
+    [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) { color:#fff!important;background:linear-gradient(100deg,#9748bd,#df4963 62%,#eb764b)!important; }
+    [data-testid="stForm"] input:focus { border-color:#ca76dc!important;box-shadow:0 0 0 2px #bb54d43b!important; }
+    </style>""", unsafe_allow_html=True)
+    if theme_mode == "Açık":
+        st.markdown("""<style>
+        [data-testid="stAppViewContainer"] { background-image:radial-gradient(ellipse at 82% 22%,#a34cb22b,transparent 35%),radial-gradient(ellipse at 14% 82%,#e7434e22,transparent 38%),linear-gradient(145deg,#f8f4f8,#efe7f1)!important; }
+        [data-testid="stVerticalBlockBorderWrapper"] { background:#fffafdE8!important;border-color:#d6b9dc!important;box-shadow:0 24px 70px #53244b28!important; }
+        .auth-title { color:#2b1d33!important;text-shadow:none!important; }.auth-copy { color:#716579!important; }
+        [data-testid="stForm"] label,[data-testid="stForm"] p { color:#4b3c51!important; }
+        [data-testid="stForm"] input { background:#fffafd!important;color:#2d2033!important;border-color:#e3d3e7!important; }
+        .auth-feature-strip span { background:#fbf5fc!important;color:#644a6a!important;border-color:#e8d9eb!important; }
+        [data-testid="stRadio"] [role="radiogroup"] label { color:#624d68!important; }
+        [data-testid="stTabs"] [data-baseweb="tab"] { color:#624d68!important; }
+        </style>""", unsafe_allow_html=True)
+    st.markdown(f'<div class="auth-brand"><span class="phoenix-brand-icon">{phoenix_mark_svg(30)}</span> YKS ÇALIŞMA STÜDYOSU</div>', unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">YKS yolculuğunu planla, ilerlemeni takip et ve her gün küçük bir adım daha at.</div><div class="auth-feature-strip"><span>✦ Kişisel çalışma planı</span><span>◷ Günlük odak takibi</span><span>⌁ Güvenli hafıza</span></div>', unsafe_allow_html=True)
         auth_mode = st.radio("Hesap işlemi", ["Giriş yap", "Hesap oluştur"], horizontal=True,
@@ -1184,11 +1229,15 @@ def main():
     with st.sidebar:
         st.markdown('<div class="side-brand"><span class="side-mark">J</span><span>JARVIS <small style="display:block;color:#91a3bf;font-weight:500;letter-spacing:.12em">YKS STUDIO</small></span></div>', unsafe_allow_html=True)
         st.header(f"👤 {st.session_state.get('username', 'Kullanıcı')}")
+        st.markdown(f'<div class="side-brand"><span class="side-mark">{phoenix_mark_svg(25)}</span><span>ANKA <small style="display:block;color:#beaac9;font-weight:550;letter-spacing:.15em">YKS ÇALIŞMA STÜDYOSU</small></span></div>', unsafe_allow_html=True)
+        safe_sidebar_name = html.escape(st.session_state.get("username", "Kullanıcı"), quote=True)
+        st.markdown(f'<div class="sidebar-profile"><span class="sidebar-avatar">{safe_sidebar_name[:1].upper()}</span><span><b>{safe_sidebar_name}</b><small>Çalışma alanın aktif</small></span><i></i></div>', unsafe_allow_html=True)
         st.button("Çıkış yap", use_container_width=True, on_click=logout_user)
         st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
                            mime="application/json", use_container_width=True)
         theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], key="theme_mode")
+        theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], index=1, key="theme_mode")
         st.divider()
 
     if theme_mode == "Koyu":
@@ -1238,15 +1287,82 @@ def main():
         [data-testid="stForm"] { background:#fff!important;border:1px solid #e5ddd7!important;border-radius:18px!important;padding:18px!important;box-shadow:0 12px 30px #5430200c!important; }
         """
     st.markdown(f"<style>{theme_css}</style>", unsafe_allow_html=True)
+    if theme_mode == "Koyu":
+        phoenix_theme_css = """
+        :root { --ink:#f4eefa;--muted:#b5a8c0;--brand:#f05b61;--mint:#db8df0;--gold:#ffc578;--line:#3c2d45;--paper:#120e18; }
+        html,body,[data-testid="stAppViewContainer"] { background:#120e18!important;background-image:radial-gradient(ellipse at 82% 0%,#9e3db927,transparent 38%),radial-gradient(ellipse at 8% 36%,#dc39431c,transparent 34%),linear-gradient(145deg,#110d18,#18121e 52%,#120f19)!important;background-attachment:fixed!important; }
+        [data-testid="stAppViewContainer"] .main { color:#f4eefa!important; }
+        h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#211327,#17101d 60%,#100e17)!important;border-right:1px solid #6c355b!important; }
+        [data-testid="stSidebar"] * { color:#f1eaf4; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#3c2d45!important;color:#f4eefa!important; }
+        [data-testid="stMetricValue"],.soft-card h3 { color:#fff7ff!important; }
+        .soft-card p,.empty-state { color:#bfb1c8!important; }
+        .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#43314d!important; }
+        .week-empty-copy strong { color:#fff5ff!important; }.week-empty-copy span { color:#b9a9c3!important; }
+        .week-bars { background:linear-gradient(180deg,#2a2031,#211927)!important; }
+        .calendar-day { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#403049!important; }
+        .calendar-day small,.calendar-day span,.calendar-day .calendar-quiet { color:#baaac5!important; }
+        .calendar-day strong,.calendar-day ul { color:#f2eafa!important; }
+        [data-testid="stForm"] { background:linear-gradient(145deg,#211927,#19141f)!important;border:1px solid #43314d!important;border-radius:20px!important;padding:20px!important;box-shadow:0 16px 42px #08050c75!important; }
+        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#17121d!important;color:#f7effa!important;border-color:#493653!important; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#211927!important; }[data-testid="stTabs"] [data-baseweb="tab"] { color:#c9bad2!important; }
+        [data-testid="stTabs"] [aria-selected="true"] { background:#38223b!important;color:#ffa8bb!important; }
+        [data-testid="stChatMessage"] { background:#211927!important;border-color:#43314d!important; }[data-testid="stChatInput"] textarea { background:#17121d!important;color:#f7effa!important; }
+        .stDownloadButton button { background:#302039!important;color:#f3b7e5!important;border-color:#65466e!important; }
+        """
+    else:
+        phoenix_theme_css = """
+        :root { --ink:#271a30;--muted:#716579;--brand:#c94355;--mint:#9b4db1;--gold:#9b5b2b;--line:#e8dce9;--paper:#f8f4f8; }
+        html,body,[data-testid="stAppViewContainer"] { background:#f8f4f8!important;background-image:radial-gradient(ellipse at 88% 2%,#a34cb215,transparent 34%),radial-gradient(ellipse at 3% 30%,#e7434e12,transparent 34%),linear-gradient(145deg,#fbf8fb,#f4eff6)!important;background-attachment:fixed!important; }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#26172e,#19121e 68%,#15101a)!important;border-right:1px solid #593153!important; }
+        [data-testid="stSidebar"] * { color:#f3eaf7; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:#fffafd!important;border-color:#eaddeb!important;color:#2b1d33!important; }
+        [data-testid="stMetricValue"],.soft-card h3 { color:#291c31!important; }.soft-card p,.empty-state { color:#716579!important; }
+        .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#fffafd,#f7eff8)!important;border-color:#eaddeb!important; }
+        .calendar-day { background:linear-gradient(145deg,#fffafd,#f7eff8)!important;border-color:#eaddeb!important; }
+        [data-testid="stForm"] { background:#fffafd!important;border:1px solid #eaddeb!important;border-radius:20px!important;padding:20px!important;box-shadow:0 16px 42px #56335b0d!important; }
+        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#fffafd!important;color:#2d2033!important;border-color:#e3d3e7!important; }
+        """
+    st.markdown(f"<style>{phoenix_theme_css}</style>", unsafe_allow_html=True)
     st.markdown("""<style>
     [data-testid="stAppViewContainer"] .main { position:relative; }
     [data-testid="stMainBlockContainer"] { position:relative; }
     .hero-art { filter:drop-shadow(0 0 18px #ffb74942); }
     [data-testid="stAppViewContainer"]::before { content:"";position:fixed;z-index:0;pointer-events:none;right:-105px;top:115px;width:240px;height:240px;border-radius:50%;opacity:.16;background:radial-gradient(circle,#fff7dc 0 5%,#ffc45b 6% 9%,#e34636 10% 13%,transparent 14% 28%,#e3463655 29% 30%,transparent 31%);box-shadow:0 0 60px #f15b3340; }
     @media(max-width:760px) { [data-testid="stAppViewContainer"]::before { width:130px;height:130px;right:-65px;top:80px;opacity:.11; } }
+    .app-masthead { display:flex;align-items:center;justify-content:space-between;margin:-.55rem 0 1.2rem;padding:.7rem .95rem;border:1px solid #ffffff13;border-radius:15px;background:linear-gradient(100deg,#24182dba,#291621a8);color:#f6eefa;box-shadow:0 8px 30px #13091819; }
+    .app-masthead-brand { display:flex;align-items:center;gap:.65rem;font-size:.74rem;font-weight:820;letter-spacing:.16em; }
+    .app-masthead-mark { display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:linear-gradient(140deg,#a847ca,#dd475b 68%,#f08a53);color:white; }
+    .app-masthead-date { color:#d0c1d9;font-size:.82rem; }
+    .side-brand { gap:12px!important;letter-spacing:.1em!important;margin:.4rem 0 1.5rem!important; }
+    .side-mark { width:43px!important;height:43px!important;border-radius:15px!important;background:linear-gradient(140deg,#a847ca,#dd475b 68%,#f08a53)!important;color:#fff!important;box-shadow:0 6px 24px #ce426245,inset 0 1px 0 #ffffff55; }
+    .sidebar-profile { display:flex;align-items:center;gap:10px;padding:11px 12px;margin:.6rem 0 .45rem;border:1px solid #ffffff18;border-radius:15px;background:#ffffff09; }
+    .sidebar-avatar { display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:12px;background:linear-gradient(140deg,#a847ca,#dd475b);font-weight:850;color:#fff; }
+    .sidebar-profile b,.sidebar-profile small { display:block; }.sidebar-profile b { font-size:.87rem; }.sidebar-profile small { color:#bba8c5;font-size:.69rem;margin-top:2px; }.sidebar-profile i { margin-left:auto;width:8px;height:8px;border-radius:50%;background:#65d9a0;box-shadow:0 0 12px #65d9a0a8; }
+    .side-nav-label { color:#d98be8!important;font-size:.67rem!important; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label { border-radius:12px!important;margin:2px 0!important;padding:.7rem .8rem!important;transition:all .18s ease!important; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background:linear-gradient(100deg,#a946c14a,#db455644)!important;box-shadow:inset 3px 0 #ef7a82,0 8px 22px #1009154d;color:#fff!important; }
+    .hero-card { min-height:295px!important;padding:2.2rem 2.5rem!important;border:1px solid #e98ab13d!important;background:radial-gradient(ellipse at 83% 52%,#c445b944,transparent 34%),linear-gradient(112deg,#211427 0%,#421c35 47%,#832d3b 79%,#4b224f 100%)!important;box-shadow:0 22px 65px #35142c52, inset 0 1px 0 #ffffff12!important; }
+    .hero-card:after { width:370px!important;height:370px!important;right:4%!important;top:-44px!important;background:radial-gradient(circle,#ffc17a1c 0 1%,#ee66831c 34%,#aa4bce16 61%,transparent 71%)!important;filter:blur(1px); }
+    .hero-card h1 { text-shadow:0 4px 36px #ff73762b; }.hero-card p { color:#e3d3e5!important; }.hero-eyebrow { color:#ffc880!important; }
+    .hero-pill { background:#ffffff0d!important;border-color:#ffffff28!important;backdrop-filter:blur(10px); }
+    .phoenix-hero { width:min(37%,350px)!important;min-width:220px!important;filter:drop-shadow(0 0 24px #e45b8a77);animation:phoenix-drift 7s ease-in-out infinite; }
+    @keyframes phoenix-drift { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
+    .section-kicker { color:#c65370!important; }.soft-card { border-radius:19px!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important; }
+    .soft-card:hover { transform:translateY(-2px);box-shadow:0 14px 32px #67274414!important;border-color:#d99acb!important; }
+    [data-testid="stMetric"] { border-radius:18px!important;box-shadow:0 8px 24px #4c1b3310!important; }
+    .stButton button,.stDownloadButton button { border-radius:12px!important;background:linear-gradient(105deg,#a245c4,#d54362 68%,#ed7549)!important;color:#fff!important;border:0!important;box-shadow:0 7px 22px #9c356f2c!important; }
+    .stButton button:hover,.stDownloadButton button:hover { filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 11px 30px #9c356f45!important; }
+    [data-testid="stProgressBar"] > div > div { background:linear-gradient(90deg,#a34bc7,#d84467,#f07c4c)!important; }
+    .study-heatmap { border-radius:18px!important; }.calendar-day { border-radius:16px!important; }
+    [data-testid="stMainBlockContainer"] { max-width:1460px!important; }
+    @media(prefers-reduced-motion:reduce) { .phoenix-hero { animation:none!important; } }
+    @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.phoenix-hero { min-width:112px!important;width:30%!important; } }
     </style>""", unsafe_allow_html=True)
     st.title("YKS ÇALIŞMA STÜDYOSU")
     st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
+    st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'><span class='app-masthead-mark'>{phoenix_mark_svg(22)}</span> ANKA · YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
 
     if not api_ready:
         st.warning("Gemini API hazır değil. Kayıtlı veriler, notlar ve hesap makinesi kullanılabilir; AI özellikleri API anahtarı gerektirir.")
