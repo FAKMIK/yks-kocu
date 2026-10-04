@@ -656,6 +656,8 @@ def render_dashboard(user_id: int, username: str) -> None:
 
 
 def render_login() -> None:
+    theme_picker_columns = st.columns([1, 1, 1])
+    theme_mode = theme_picker_columns[1].selectbox("Tema", ["Açık", "Koyu"], key="theme_mode", label_visibility="collapsed")
     background_path = Path(__file__).resolve().parent / "assets" / "login_mountains.png"
     background_rule = ""
     mountain_rules = ""
@@ -665,12 +667,25 @@ def render_login() -> None:
         background_rule = f'background-image:linear-gradient(90deg,#0b1724a8,#10202b78),url("data:image/png;base64,{encoded_image}");'
     else:
         mountain_rules = '''
-        [data-testid="stAppViewContainer"]:before { content:"";position:fixed;inset:22% 0 0;pointer-events:none;opacity:.75;background:#263e42;clip-path:polygon(0 38%,12% 17%,23% 47%,38% 9%,51% 39%,64% 0,79% 41%,90% 16%,100% 38%,100% 100%,0 100%); }
-        [data-testid="stAppViewContainer"]:after { content:"";position:fixed;inset:39% 0 0;pointer-events:none;opacity:.88;background:linear-gradient(180deg,#122b31 0%,#101c25 78%);clip-path:polygon(0 30%,17% 8%,34% 35%,49% 3%,66% 31%,81% 5%,100% 27%,100% 100%,0 100%); }
+        [data-testid="stAppViewContainer"]:before { content:"";position:fixed;right:8vw;top:12vh;width:min(54vw,620px);height:min(54vw,620px);pointer-events:none;border-radius:50%;opacity:.57;background:radial-gradient(circle,#fff7d8 0 3%,#ffc859 4% 6%,#ef5038 7% 10%,#371d1d 11% 13%,transparent 14% 23%,#ff6a3b55 24% 25%,transparent 26%);filter:drop-shadow(0 0 50px #f04b2a88); }
+        [data-testid="stAppViewContainer"]:after { content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;background:repeating-linear-gradient(128deg,transparent 0 9%,#ffffff08 9.1% 9.25%,transparent 9.35% 18%),linear-gradient(145deg,transparent 35%,#c43e3024 35.2% 35.5%,transparent 35.7% 60%,#ffc75b16 60.2% 60.4%,transparent 60.6%); }
+        '''
+    auth_theme_css = ""
+    if theme_mode == "Açık":
+        auth_theme_css = '''
+        [data-testid="stVerticalBlockBorderWrapper"] { background:#fffaf1df!important;border-color:#ffffffb0!important; }
+        .auth-title { color:#241f20!important;text-shadow:none!important; }
+        .auth-copy,[data-testid="stForm"] label,[data-testid="stForm"] p { color:#575258!important; }
+        [data-testid="stForm"] input { background:#fffefa!important;border-color:#b7a99b!important;color:#27252a!important; }
+        [data-testid="stForm"] input::placeholder { color:#77747a!important; }
+        [data-testid="stForm"] button { background:linear-gradient(100deg,#b93d31,#d37035)!important;color:white!important; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#eee6dd!important; }
+        [data-testid="stTabs"] [data-baseweb="tab"] { color:#5c5351!important; }
+        [data-testid="stTabs"] [aria-selected="true"] { background:white!important;color:#a53c31!important; }
         '''
     st.markdown(f'''<style>
-    html,body,[data-testid="stAppViewContainer"] {{ background:#15232c !important; }}
-    [data-testid="stAppViewContainer"] {{ {background_rule} background-position:center;background-size:cover;background-attachment:fixed; }}
+    html,body,[data-testid="stAppViewContainer"] {{ background:#151417 !important; }}
+    [data-testid="stAppViewContainer"] {{ background-image:radial-gradient(ellipse at 80% 30%,#a332292e,transparent 42%),linear-gradient(135deg,#13151b,#272022 58%,#16171c);{background_rule} background-position:center;background-size:cover;background-attachment:fixed; }}
     {mountain_rules}
     [data-testid="stMainBlockContainer"] {{ position:relative;z-index:2;max-width:520px!important;padding-top:7vh!important;padding-bottom:8vh!important; }}
     [data-testid="stSidebar"] {{ display:none; }}
@@ -688,6 +703,7 @@ def render_login() -> None:
     .auth-title {{ color:#f8faf9;font-size:1.72rem;font-weight:760;letter-spacing:-.035em;text-align:center;margin:.2rem 0 .4rem; }}
     .auth-copy {{ color:#cbd7d9;text-align:center;font-size:.92rem;margin:0 0 1.35rem; }}
     @media(max-width:600px) {{ [data-testid="stMainBlockContainer"]{{padding:3vh 1rem!important}} [data-testid="stVerticalBlockBorderWrapper"]{{padding:1.2rem!important;border-radius:20px}} }}
+    {auth_theme_css}
     </style>''', unsafe_allow_html=True)
     st.markdown('<div class="auth-brand"><span>J</span> JARVIS · YKS STUDIO</div>', unsafe_allow_html=True)
     with st.container(border=True):
@@ -733,8 +749,6 @@ def main():
         render_login()
         st.stop()
 
-    st.title("JARVIS · YKS Çalışma Stüdyosu")
-    st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
     with st.sidebar:
@@ -744,24 +758,73 @@ def main():
         st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
                            mime="application/json", use_container_width=True)
+        theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], key="theme_mode")
         st.divider()
-        st.header("🧠 Durum")
-        st.success("Gemini API hazır") if api_ready else st.error("GEMINI_API_KEY bulunamadı")
+
+    if theme_mode == "Koyu":
+        theme_css = """
+        :root { --ink:#f1f3f6; --muted:#aeb7c5; --brand:#ff5148; --mint:#ffb24c; --gold:#ffd36e; --line:#333a46; --paper:#11151c; }
+        html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a18,transparent 24%),repeating-linear-gradient(135deg,#ffffff04 0 1px,transparent 1px 22px)!important; background-attachment:fixed!important; }
+        [data-testid="stAppViewContainer"] .main { color:#f1f3f6!important; }
+        h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#20191b,#12161e 62%,#19191a)!important; border-right:1px solid #59312d!important; }
+        [data-testid="stSidebar"] * { color:#eceff4; }
+        .side-nav-label { color:#ffae79!important; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] { background:#1a2029!important; border-color:#333b48!important; color:#f1f3f6!important; }
+        [data-testid="stMetricValue"],.soft-card h3 { color:#f4f5f7!important; }
+        .soft-card p,.empty-state { color:#b9c2cf!important; }
+        .empty-state { background:#1a2029!important;border-color:#454d59!important; }
+        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#171d26!important;color:#f1f3f6!important;border-color:#414957!important; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#202630!important; }
+        [data-testid="stTabs"] [data-baseweb="tab"] { color:#c0c8d3!important; }
+        [data-testid="stTabs"] [aria-selected="true"] { background:#303844!important;color:#ffb24c!important; }
+        [data-testid="stChatMessage"] { background:#1b222c!important;border-color:#343d4a!important; }
+        [data-testid="stChatInput"] textarea { background:#171d26!important;color:#f1f3f6!important; }
+        .stDownloadButton button { background:#302622!important;color:#ffd08b!important;border-color:#654638!important; }
+        .hero-card { background:linear-gradient(115deg,#231719 0%,#52231f 55%,#9e382b 100%)!important;box-shadow:0 18px 45px #08090c88!important; }
+        .hero-eyebrow { color:#ffd17d!important; }
+        [data-testid="stSidebar"] [data-testid="stMetric"] { background:#251f22!important; }
+        """
+    else:
+        theme_css = """
+        :root { --ink:#202b3b; --muted:#687486; --brand:#b63e32; --mint:#397c70; --gold:#aa671e; --line:#e5ddd7; --paper:#f7f5f2; }
+        html,body,[data-testid="stAppViewContainer"] { background-color:#f7f5f2!important; background-image:radial-gradient(ellipse at 82% 7%,#e9513512,transparent 33%),radial-gradient(ellipse at 91% 12%,#ffbf5919,transparent 23%),repeating-linear-gradient(135deg,#6a3d2a05 0 1px,transparent 1px 24px)!important; background-attachment:fixed!important; }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#292326,#171b22 70%,#202023)!important;border-right:1px solid #513331!important; }
+        .side-mark { background:linear-gradient(135deg,#ffbd5b,#f26748)!important;color:#351d1b!important; }
+        .side-nav-label { color:#ffbd90!important; }
+        .stButton button { background:#a93b31!important;border-color:#a93b31!important; }
+        .stButton button:hover { background:#872d27!important;border-color:#872d27!important; }
+        .hero-card { background:linear-gradient(115deg,#252022 0%,#60302a 56%,#a44231 100%)!important; }
+        .hero-eyebrow { color:#ffd17d!important; }
+        """
+    st.markdown(f"<style>{theme_css}</style>", unsafe_allow_html=True)
+    st.markdown("""<style>
+    [data-testid="stAppViewContainer"] .main { position:relative; }
+    [data-testid="stMainBlockContainer"] { position:relative; }
+    .hero-art { filter:drop-shadow(0 0 18px #ffb74942); }
+    [data-testid="stAppViewContainer"]::before { content:"";position:fixed;z-index:0;pointer-events:none;right:-105px;top:115px;width:240px;height:240px;border-radius:50%;opacity:.16;background:radial-gradient(circle,#fff7dc 0 5%,#ffc45b 6% 9%,#e34636 10% 13%,transparent 14% 28%,#e3463655 29% 30%,transparent 31%);box-shadow:0 0 60px #f15b3340; }
+    @media(max-width:760px) { [data-testid="stAppViewContainer"]::before { width:130px;height:130px;right:-65px;top:80px;opacity:.11; } }
+    </style>""", unsafe_allow_html=True)
+    st.title("JARVIS · YKS Çalışma Stüdyosu")
+    st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
 
     if not api_ready:
         st.warning("Gemini API hazır değil. Kayıtlı veriler, notlar ve hesap makinesi kullanılabilir; AI özellikleri API anahtarı gerektirir.")
 
     records = load_memory(user_id)
     with st.sidebar:
-        st.metric("📂 Hafıza kaydı", len(records))
-        if records:
-            with st.expander("Son kayıtlar"):
-                for item in records[-6:]:
-                    st.write(f"• {item.get('type')} — {item.get('title')}")
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
         active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme",
                                              "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
+        st.divider()
+        st.markdown("<div class='side-nav-label'>DURUM</div>", unsafe_allow_html=True)
+        st.success("Gemini API hazır") if api_ready else st.error("GEMINI_API_KEY bulunamadı")
+        st.metric("📂 Hafıza kaydı", len(records))
+        if records:
+            with st.expander("Son kayıtlar"):
+                for item in records[-6:]:
+                    st.write(f"• {item.get('type', 'kayıt')} — {item.get('title', 'Başlıksız kayıt')}")
 
     if active_view == "⌂ Genel Bakış":
         render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
