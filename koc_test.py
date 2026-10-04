@@ -171,6 +171,15 @@ def init_db():
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(user_id, key)
             );
+            CREATE TABLE IF NOT EXISTS study_rooms (
+                code TEXT PRIMARY KEY, owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                duration_minutes INTEGER NOT NULL, started_at REAL, created_at REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS study_room_members (
+                room_code TEXT NOT NULL REFERENCES study_rooms(code) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                joined_at REAL NOT NULL, PRIMARY KEY(room_code,user_id)
+            );
         """)
 
 
@@ -241,6 +250,37 @@ def restore_account_backup(user_id: int, uploaded_file) -> tuple[bool, str]:
         payload = json.loads(uploaded_file.getvalue().decode("utf-8"))
         if not isinstance(payload, dict) or payload.get("format_version") != 1:
             return False, "Bu dosya tanınan ANKA yedek biçiminde değil."
+        if payload.get("offline_kit") is True:
+            events = payload.get("changes", [])
+            if not isinstance(events, list) or len(events) > 5000:
+                return False, "Çevrimdışı eşitleme dosyası geçersiz."
+            tasks = read_user_json(user_id, "study_tasks", [])
+            notes = read_user_json(user_id, "notes", [])
+            sessions = read_user_json(user_id, "study_sessions", [])
+            task_lookup = {str(item.get("id")): item for item in tasks if isinstance(item, dict)}
+            applied = 0
+            for event in events:
+                if not isinstance(event, dict):
+                    continue
+                if event.get("type") == "task_done" and str(event.get("task_id")) in task_lookup:
+                    task_lookup[str(event["task_id"])]["done"] = bool(event.get("done"))
+                    if event.get("done"):
+                        award_xp(user_id, f"task:{event['task_id']}", 10, "Çevrimdışı tamamlanan görev")
+                    applied += 1
+                elif event.get("type") == "note" and isinstance(event.get("text"), str) and event["text"].strip():
+                    if not any(item.get("id") == event.get("id") for item in notes if isinstance(item, dict)):
+                        notes.append({"id": str(event.get("id") or uuid.uuid4().hex[:12]), "created_at": datetime.now().astimezone().isoformat(timespec="minutes"), "text": event["text"][:2000]})
+                        applied += 1
+                elif event.get("type") == "study_session" and isinstance(event.get("minutes"), int):
+                    if 1 <= event["minutes"] <= 600 and not any(item.get("id") == event.get("id") for item in sessions if isinstance(item, dict)):
+                        sessions.append({"id": str(event.get("id") or uuid.uuid4().hex[:10]), "date": str(event.get("date", date.today().isoformat())),
+                                         "minutes": event["minutes"], "subject": str(event.get("subject", "Diğer"))[:40], "note": "Çevrimdışı yardımcı"})
+                        award_xp(user_id, f"session:{sessions[-1]['id']}", max(5, event["minutes"] // 5), "Çevrimdışı çalışma")
+                        applied += 1
+            write_user_json(user_id, "study_tasks", tasks)
+            write_user_json(user_id, "notes", notes)
+            write_user_json(user_id, "study_sessions", sessions)
+            return True, f"Çevrimdışı değişiklikler içe aktarıldı: {applied} kayıt işlendi."
         app_data = payload.get("app_data", {})
         records = payload.get("records", [])
         if not isinstance(app_data, dict) or not isinstance(records, list):
@@ -413,6 +453,112 @@ def write_user_json(user_id: int, name: str, payload) -> None:
     with db_connect() as db:
         db.execute("INSERT INTO app_data(user_id,key,value) VALUES(?,?,?) "
                    "ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value", (user_id, name, encoded))
+
+
+def award_xp(user_id: int, event_id: str, points: int, label: str) -> None:
+    """Award XP once per persisted study event, so reruns cannot double count."""
+    events = read_user_json(user_id, "xp_events", [])
+    if any(item.get("id") == event_id for item in events if isinstance(item, dict)):
+        return
+    events.append({"id": event_id, "points": max(0, int(points)), "label": label,
+                   "date": date.today().isoformat()})
+    write_user_json(user_id, "xp_events", events)
+
+
+def xp_profile(user_id: int) -> dict:
+    events = read_user_json(user_id, "xp_events", [])
+    xp = sum(max(0, int(item.get("points", 0))) for item in events if isinstance(item, dict))
+    ranks = [(0, "Közden Doğan"), (100, "Anka Yavrusu"), (300, "Alev Kanatlı"),
+             (700, "Göklerin Anka'sı"), (1500, "Efsanevi Anka")]
+    rank_index = max(index for index, (threshold, _) in enumerate(ranks) if xp >= threshold)
+    threshold, title = ranks[rank_index]
+    next_threshold = ranks[rank_index + 1][0] if rank_index + 1 < len(ranks) else threshold
+    return {"xp": xp, "title": title, "next": next_threshold,
+            "progress": 1.0 if next_threshold == threshold else (xp - threshold) / (next_threshold - threshold)}
+
+
+def offline_kit_html(user_id: int) -> str:
+    seed = {"tasks": read_user_json(user_id, "study_tasks", []),
+            "questions": read_user_json(user_id, "wrong_questions", []),
+            "notes": read_user_json(user_id, "notes", [])}
+    seed_json = json.dumps(seed, ensure_ascii=False).replace("</", "<\\/")
+    page = r'''<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#17121f"><title>ANKA · Çevrimdışı çalışma</title>
+<style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#522248,#12121a 48%);color:#f7eff8;font:16px system-ui,sans-serif}main{max-width:900px;margin:auto;padding:24px}header,.card{background:#211c2acc;border:1px solid #ffffff20;border-radius:20px;padding:20px;margin:14px 0;backdrop-filter:blur(14px)}h1{margin:0;color:#ffbe83}small,.muted{color:#c9bbce}button{background:linear-gradient(110deg,#9b43bd,#d34463);color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}input,textarea{background:#15141c;color:#fff;border:1px solid #514257;border-radius:10px;padding:10px;width:100%;margin:6px 0}li{margin:10px 0}.timer{font-size:64px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}.row{display:flex;gap:10px;align-items:center}.row button{flex:none}</style>
+<main><header><small>ANKA · YKS ÇALIŞMA STÜDYOSU</small><h1>Çevrimdışı çalışma kiti</h1><p class="muted">Bu tek dosya internet olmadan çalışır. Kayıtlar bu cihazın tarayıcı deposunda tutulur.</p></header>
+<section class="card"><h2>Odak sayacı</h2><div class="timer" id="clock">25:00</div><div class="row"><button onclick="toggleTimer()" id="timerBtn">Başlat</button><button onclick="resetTimer()">Sıfırla</button><select id="subject"><option>Matematik</option><option>Türkçe</option><option>Fizik</option><option>Kimya</option><option>Biyoloji</option><option>Diğer</option></select></div></section>
+<section class="card"><h2>Bugünkü plan</h2><ul id="tasks"></ul></section><section class="card"><h2>Yanlış soru tekrarların</h2><ul id="questions"></ul></section>
+<section class="card"><h2>Çevrimdışı not</h2><textarea id="note" rows="3" placeholder="Notunu yaz..."></textarea><button onclick="saveNote()">Notu kaydet</button><ul id="notes"></ul></section>
+<section class="card"><h2>Siteyle eşitle</h2><p class="muted">İnternet gelince değişiklik dosyasını indirip ANKA’daki “Yedekten geri yükle” alanına aktar. Eşitleme yalnızca bu dosyayı seçtiğinde yapılır.</p><button onclick="exportChanges()">Değişiklikleri JSON indir</button> <label><input type="file" id="importFile" accept="application/json" onchange="importChanges(event)">Değişiklik JSON’unu içe al</label></section></main>
+<script>const SEED=__SEED__;const STORE='anka_offline_v1';let state=JSON.parse(localStorage.getItem(STORE)||'null')||{tasks:SEED.tasks,questions:SEED.questions,notes:SEED.notes,changes:[]};function save(){localStorage.setItem(STORE,JSON.stringify(state))}function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}function render(){const t=document.getElementById('tasks');t.replaceChildren();state.tasks.filter(x=>x.date===new Date().toISOString().slice(0,10)).forEach(x=>{const li=el('li','');const c=document.createElement('input');c.type='checkbox';c.checked=!!x.done;c.onchange=()=>{x.done=c.checked;state.changes.push({type:'task_done',task_id:x.id,done:x.done});save()};li.append(c,document.createTextNode(' '+[x.subject,x.topic,x.target].filter(Boolean).join(' · ')));t.append(li)});const q=document.getElementById('questions');q.replaceChildren();state.questions.filter(x=>!x.mastered).forEach(x=>q.append(el('li',[x.subject,x.topic,'Tekrar: '+(x.next_review||'belirlenmedi')].filter(Boolean).join(' · '))));const n=document.getElementById('notes');n.replaceChildren();state.notes.slice(-20).reverse().forEach(x=>n.append(el('li',typeof x==='string'?x:x.text||'')))}function saveNote(){const v=document.getElementById('note').value.trim();if(!v)return;const id=crypto.randomUUID();state.notes.push({id,text:v});state.changes.push({type:'note',id,text:v});document.getElementById('note').value='';save();render()}let left=1500,handle=null;function paint(){document.getElementById('clock').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')}function toggleTimer(){if(handle){clearInterval(handle);handle=null;document.getElementById('timerBtn').textContent='Devam et';return}document.getElementById('timerBtn').textContent='Duraklat';handle=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(handle);handle=null;state.changes.push({type:'study_session',id:crypto.randomUUID(),date:new Date().toISOString().slice(0,10),minutes:25,subject:document.getElementById('subject').value});save();document.getElementById('timerBtn').textContent='Seans tamamlandı'}},1000)}function resetTimer(){if(handle)clearInterval(handle);handle=null;left=1500;paint();document.getElementById('timerBtn').textContent='Başlat'}function exportChanges(){const data={format_version:1,offline_kit:true,changes:state.changes};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='anka-cevrimdisi-degisiklikler.json';a.click();URL.revokeObjectURL(a.href)}function importChanges(e){const f=e.target.files[0];if(!f)return;f.text().then(s=>{const d=JSON.parse(s);if(d.offline_kit&&Array.isArray(d.changes)){state.changes.push(...d.changes);save();alert('Değişiklikler içe alındı.');}}).catch(()=>alert('Dosya okunamadı.'))}render();paint();</script></html>'''
+    return page.replace("const SEED=__SEED__;", f"const SEED={seed_json};")
+
+
+def leaderboard_rows(current_user_id: int, friend_names: list[str]) -> list[dict]:
+    """Return weekly study totals only for friends who explicitly opted in."""
+    if not friend_names:
+        return []
+    placeholders = ",".join("?" for _ in friend_names)
+    start_day = (date.today() - timedelta(days=6)).isoformat()
+    end_day = date.today().isoformat()
+    with db_connect() as db:
+        rows = db.execute(f"SELECT u.id,u.username,d.value,y.value AS ypt_value FROM users u "
+                           f"JOIN app_data consent ON consent.user_id=u.id AND consent.key='leaderboard_opt_in' AND consent.value='true' "
+                           f"LEFT JOIN app_data d ON d.user_id=u.id AND d.key='study_sessions' "
+                           f"LEFT JOIN app_data y ON y.user_id=u.id AND y.key='ypt_sessions' "
+                           f"WHERE u.username COLLATE NOCASE IN ({placeholders})", tuple(friend_names)).fetchall()
+    output = []
+    for row in rows:
+        try:
+            sessions = json.loads(row["value"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            sessions = []
+        try:
+            ypt_sessions = json.loads(row["ypt_value"] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            ypt_sessions = []
+        minutes = sum(max(0, int(item.get("minutes", 0))) for item in sessions + ypt_sessions
+                      if isinstance(item, dict) and start_day <= item.get("date", "") <= end_day)
+        output.append({"Arkadaş": row["username"], "7 günlük çalışma": minutes})
+    return sorted(output, key=lambda item: item["7 günlük çalışma"], reverse=True)
+
+
+def create_study_room(user_id: int, duration: int) -> str:
+    code = uuid.uuid4().hex[:6].upper()
+    now = time.time()
+    with db_connect() as db:
+        db.execute("INSERT INTO study_rooms(code,owner_id,duration_minutes,started_at,created_at) VALUES(?,?,?,NULL,?)",
+                   (code, user_id, int(duration), now))
+        db.execute("INSERT INTO study_room_members(room_code,user_id,joined_at) VALUES(?,?,?)", (code, user_id, now))
+    return code
+
+
+def join_study_room(user_id: int, code: str) -> bool:
+    now = time.time()
+    with db_connect() as db:
+        room = db.execute("SELECT code,created_at FROM study_rooms WHERE code=?", (code.strip().upper(),)).fetchone()
+        if not room or now - room["created_at"] > 86400:
+            return False
+        db.execute("INSERT OR IGNORE INTO study_room_members(room_code,user_id,joined_at) VALUES(?,?,?)",
+                   (room["code"], user_id, now))
+    return True
+
+
+def start_study_room(user_id: int, code: str) -> bool:
+    with db_connect() as db:
+        result = db.execute("UPDATE study_rooms SET started_at=? WHERE code=? AND owner_id=? AND started_at IS NULL",
+                            (time.time(), code, user_id))
+    return result.rowcount > 0
+
+
+def get_study_room(user_id: int, code: str):
+    with db_connect() as db:
+        room = db.execute("SELECT r.* FROM study_rooms r JOIN study_room_members m ON m.room_code=r.code "
+                          "WHERE r.code=? AND m.user_id=?", (code, user_id)).fetchone()
+        if not room:
+            return None, []
+        members = db.execute("SELECT u.username FROM study_room_members m JOIN users u ON u.id=m.user_id "
+                             "WHERE m.room_code=? ORDER BY m.joined_at", (code,)).fetchall()
+    return dict(room), [row["username"] for row in members]
 
 
 def create_new_chat(user_id: int) -> None:
@@ -857,6 +1003,136 @@ def navigate_to_view(view: str) -> None:
     st.session_state["active_view"] = view
 
 
+@st.fragment(run_every="1s")
+def render_shared_room(user_id: int, code: str) -> None:
+    room, members = get_study_room(user_id, code)
+    if not room:
+        st.warning("Bu oda bulunamadı veya artık erişimin yok.")
+        return
+    st.markdown(f"### Ortak odak odası · `{html.escape(code)}`")
+    st.caption("Katılımcılar: " + " · ".join(html.escape(name) for name in members))
+    owner = int(room["owner_id"]) == user_id
+    started_at = room.get("started_at")
+    duration = int(room["duration_minutes"])
+    if not started_at:
+        st.info(f"Oda hazır · {duration} dakikalık odak. Oda sahibi sayacı başlatınca katılımcıların ekranında da aynı anda çalışır.")
+        if owner and st.button("▶ Ortak sayacı başlat", key=f"start_shared_{code}"):
+            start_study_room(user_id, code)
+            st.rerun(scope="fragment")
+        return
+    remaining = max(0, duration * 60 - int(time.time() - float(started_at)))
+    mins, secs = divmod(remaining, 60)
+    st.markdown(f"<div class='focus-timer-card'><div class='focus-live'>● ORTAK ODAK · {len(members)} KİŞİ</div><div class='focus-clock'>{mins:02d}:{secs:02d}</div><div class='focus-subject'>{duration} dakikalık seans</div></div>", unsafe_allow_html=True)
+    st.progress(1 - remaining / max(1, duration * 60), text="Ortak seans ilerlemesi")
+    if remaining == 0:
+        logs = read_user_json(user_id, "study_sessions", [])
+        room_session_id = f"room:{code}:{user_id}"
+        if not any(item.get("id") == room_session_id for item in logs if isinstance(item, dict)):
+            logs.append({"id": room_session_id, "date": date.today().isoformat(), "minutes": duration,
+                         "subject": "Ortak odak", "note": f"Ortak oda {code}"})
+            write_user_json(user_id, "study_sessions", logs)
+            award_xp(user_id, f"session:{room_session_id}", max(5, duration // 5), "Ortak odak seansı")
+        st.success("Ortak seans tamamlandı ve çalışma geçmişine eklendi.")
+
+
+def render_anka_social(user_id: int, username: str) -> None:
+    st.markdown("# 🔥 AnkaXP · Arkadaş modu")
+    profile = xp_profile(user_id)
+    st.markdown(f"<div class='soft-card' style='border-left:4px solid #df5d66'><span class='section-kicker'>ANKA SEVİYESİ</span><h2>{profile['title']} · {profile['xp']} XP</h2><p>Çalışma oturumları, tamamlanan planlı görevler ve tekrar edilen yanlış sorular XP kazandırır.</p></div>", unsafe_allow_html=True)
+    st.progress(profile["progress"], text=f"Sonraki seviye: {profile['next']} XP" if profile["next"] > profile["xp"] else "En yüksek seviye")
+    st.markdown("### Rozet hedefleri")
+    sessions = read_user_json(user_id, "study_sessions", [])
+    wrongs = read_user_json(user_id, "wrong_questions", [])
+    tasks = read_user_json(user_id, "study_tasks", [])
+    badges = [("🔥 İlk odak", bool(sessions)), ("📚 10 oturum", len(sessions) >= 10),
+              ("🧩 5 tekrar", sum(int(item.get("review_count", 0)) for item in wrongs) >= 5),
+              ("✅ 10 görev", sum(bool(item.get("done")) for item in tasks) >= 10)]
+    badge_cols = st.columns(4)
+    for col, (badge, earned) in zip(badge_cols, badges):
+        col.markdown(f"<div class='soft-card' style='text-align:center;opacity:{1 if earned else .48}'>{badge}<br><b>{'Açıldı' if earned else 'Kilitli'}</b></div>", unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("### Arkadaş çalışma tablosu")
+    st.caption("Paylaşım kapalı başlar. Açınca yalnızca son 7 günlük toplam çalışma dakikan, eklediğin arkadaşların tablosunda görünür.")
+    consent = bool(read_user_json(user_id, "leaderboard_opt_in", False))
+    share = st.checkbox("Haftalık çalışma süremi arkadaşlarımla paylaş", value=consent, key="leaderboard_opt_in_widget")
+    if share != consent:
+        write_user_json(user_id, "leaderboard_opt_in", bool(share))
+        st.rerun()
+    friends = read_user_json(user_id, "friend_usernames", [])
+    friends = friends if isinstance(friends, list) else []
+    with st.form("friend_add_form", clear_on_submit=True):
+        friend_name = st.text_input("Arkadaşının kullanıcı adı", max_chars=32)
+        add_friend = st.form_submit_button("＋ Arkadaş ekle")
+    if add_friend:
+        with db_connect() as db:
+            friend = db.execute("SELECT id,username FROM users WHERE username=? COLLATE NOCASE", (friend_name.strip(),)).fetchone()
+        if not friend:
+            st.error("Bu kullanıcı adıyla kayıtlı hesap bulunamadı.")
+        elif int(friend["id"]) == user_id:
+            st.info("Kendi hesabını arkadaş listene ekleyemezsin.")
+        elif any(name.casefold() == friend["username"].casefold() for name in friends):
+            st.info("Bu arkadaş zaten listende.")
+        else:
+            friends.append(friend["username"])
+            write_user_json(user_id, "friend_usernames", friends)
+            st.rerun()
+    if friends:
+        st.markdown("**Arkadaş listen**")
+        for friend_name in friends:
+            left, right = st.columns([4, 1])
+            left.write(friend_name)
+            if right.button("Kaldır", key=f"remove_friend_{friend_name}"):
+                write_user_json(user_id, "friend_usernames", [name for name in friends if name != friend_name])
+                st.rerun()
+    if share:
+        visible_names = friends + [username]
+        ranking = leaderboard_rows(user_id, visible_names)
+        if ranking:
+            st.dataframe(pd.DataFrame(ranking).assign(Sıra=lambda frame: range(1, len(frame) + 1)).set_index("Sıra"), use_container_width=True)
+            st.caption("YPT ile bu siteye aynı oturumu iki kez kaydettiysen toplam süre çift sayılabilir.")
+        else:
+            st.info("Henüz sen veya eklediğin arkadaşların paylaşımı açmadı.")
+    else:
+        st.info("Haftalık sıralamaya katılmak için paylaşım iznini aç.")
+
+    st.divider()
+    st.markdown("### Ortak Pomodoro odası")
+    room_left, room_right = st.columns(2)
+    with room_left:
+        room_duration = st.selectbox("Seans süresi", [25, 45, 60], format_func=lambda value: f"{value} dakika", key="shared_room_duration")
+        if st.button("Oda oluştur", key="create_shared_room", use_container_width=True):
+            code = create_study_room(user_id, int(room_duration))
+            write_user_json(user_id, "active_study_room", code)
+            st.rerun()
+    with room_right:
+        with st.form("join_shared_room_form"):
+            room_code_input = st.text_input("Arkadaşının oda kodu", max_chars=6).upper()
+            join_room = st.form_submit_button("Odaya katıl", use_container_width=True)
+        if join_room:
+            if join_study_room(user_id, room_code_input):
+                write_user_json(user_id, "active_study_room", room_code_input)
+                st.rerun()
+            else:
+                st.error("Oda kodu bulunamadı veya odanın süresi dolmuş.")
+    active_room = read_user_json(user_id, "active_study_room", "")
+    if active_room:
+        render_shared_room(user_id, active_room)
+        if st.button("Odadan ayrıl", key="leave_shared_room"):
+            with db_connect() as db:
+                db.execute("DELETE FROM study_room_members WHERE room_code=? AND user_id=?", (active_room, user_id))
+            write_user_json(user_id, "active_study_room", "")
+            st.rerun()
+
+
+def render_offline_kit(user_id: int) -> None:
+    st.markdown("# 📦 Çevrimdışı çalışma")
+    st.caption("İnternet olmadan açılan tek HTML dosyası: görevleri gör, Pomodoro çalıştır, not al ve yanlış sorularını oku.")
+    st.download_button("⬇️ Çevrimdışı çalışma dosyasını indir", offline_kit_html(user_id),
+                       file_name="anka-cevrimdisi-calisma.html", mime="text/html", use_container_width=True)
+    st.info("Bu yardımcı PWA değildir; indirilen dosya cihazında yerel çalışır. Çevrimdışı eklediğin not ve çalışma kayıtlarını JSON olarak dışa aktarıp buradaki yedek alanından içe aktararak eşitleyebilirsin. Otomatik arka plan eşitlemesi bu Streamlit sürümünde yoktur.")
+
+
 def render_dashboard(user_id: int, username: str) -> None:
     tasks = read_user_json(user_id, "study_tasks", [])
     focus_logs = read_user_json(user_id, "study_sessions", [])
@@ -899,6 +1175,7 @@ def render_dashboard(user_id: int, username: str) -> None:
         study_streak += 1
         streak_cursor -= timedelta(days=1)
     streak_badge = "İlk adım" if study_streak < 3 else "Bronz ritim" if study_streak < 7 else "Gümüş istikrar" if study_streak < 30 else "Altın disiplin"
+    profile = xp_profile(user_id)
     review_items = read_user_json(user_id, "wrong_questions", [])
     review_due = sum(not item.get("mastered") and item.get("next_review", "") <= today.isoformat() for item in review_items)
     unfinished_today = [item for item in tasks if item.get("date") == today.isoformat() and not item.get("done")]
@@ -936,6 +1213,25 @@ def render_dashboard(user_id: int, username: str) -> None:
     </section>
     """, unsafe_allow_html=True)
 
+    if read_user_json(user_id, "bulletin_seen_date", "") != today.isoformat():
+        bulletin_city = st.session_state.get("world_weather_city", "Isparta")
+        checkin_line = f"Bugünkü durumun: {html.escape(str(today_checkin.get('mood', 'Dengeli')))} · enerji {int(today_checkin.get('energy', 3))}/5." if today_checkin else "Günlük mod ve enerji yoklamasını tamamla, planını bugünkü ritmine uyduralım."
+        st.markdown(f"<div class='soft-card' style='margin:.4rem 0 1rem;border-left:4px solid #e56754;background:linear-gradient(110deg,#21182a,#302035)!important;color:#fff'><span class='section-kicker' style='color:#ffbf80!important'>☀️ GÜNLÜK YKS BÜLTENİ</span><h3 style='color:#fff!important;margin:.45rem 0'>Günaydın {safe_name}.</h3><p style='color:#e3d7e7!important'>{html.escape(exam_countdown)} · Bugün planında <b style='color:#fff'>{len(unfinished_today)} görev</b> var. Bugün siteye {today_minutes} dakika çalışma kaydettin. {html.escape(bulletin_city)} için hava durumu aşağıdan yenilenebilir.</p><p style='color:#e3d7e7!important'>{checkin_line} Anka seviyesi: <b style='color:#ffc880'>{profile['title']}</b> · {profile['xp']} XP</p></div>", unsafe_allow_html=True)
+        weather_col, close_col = st.columns([3, 1])
+        with weather_col:
+            with st.expander(f"🌦️ {bulletin_city} hava durumunu ekle"):
+                try:
+                    weather_data = fetch_weather(bulletin_city, *fetch_city_coordinates(bulletin_city))
+                    weather_now = weather_data["current"]
+                    st.metric(f"{bulletin_city} · şu an", f"{weather_now['temperature_2m']}°C",
+                              f"Hissedilen {weather_now['apparent_temperature']}°C · nem %{weather_now['relative_humidity_2m']}")
+                except Exception:
+                    st.caption("Hava bilgisi şu an alınamıyor; şehir seçimini Dünya Paneli'nden değiştirebilirsin.")
+        with close_col:
+            if st.button("Bülteni kapat", key="dismiss_morning_bulletin", use_container_width=True):
+                write_user_json(user_id, "bulletin_seen_date", today.isoformat())
+                st.rerun()
+
     st.markdown('<div class="section-kicker">Bugün ve bu hafta</div>', unsafe_allow_html=True)
     st.markdown(f"<div class='soft-card' style='margin-bottom:1rem;border-left:4px solid #e16a48'><span class='section-kicker'>JARVIS İÇGÖRÜSÜ</span><p style='margin-top:.4rem'>{html.escape(insight)}</p></div>", unsafe_allow_html=True)
     k1, k2, k3, k4 = st.columns(4)
@@ -943,10 +1239,11 @@ def render_dashboard(user_id: int, username: str) -> None:
     k2.metric("Plan ilerlemesi", f"%{completion}", help=f"{done_count}/{task_count} görev tamamlandı")
     k3.metric("Son deneme neti", latest_net, help=latest_exam.get("name", "Deneme") if latest_exam else "Henüz deneme sonucu eklenmedi")
     k4.metric("Kaynak arşivin", str(resource_count), help="PDF ve bağlantı kaynakları")
-    extra_a, extra_b, extra_c = st.columns(3)
+    extra_a, extra_b, extra_c, extra_d = st.columns(4)
     extra_a.metric("🎓 Sıradaki sınav", exam_countdown, help="Sınav tarihini Sınav Planlayıcı bölümünden ayarla")
     extra_b.metric("⏱️ YPT · bugün", ypt_today_label, help="İçe aktarılan YPT kayıtları; site oturumlarından ayrı gösterilir")
     extra_c.metric("📚 YPT · 7 gün", f"{sum(int(item.get('minutes', 0)) for item in ypt_logs if (today - timedelta(days=6)).isoformat() <= item.get('date', '') <= today.isoformat()) // 60} sa", help="Son yedi günde içe aktarılan YPT süresi")
+    extra_d.metric("🔥 AnkaXP", f"{profile['xp']} XP", help=f"Seviye: {profile['title']}")
     streak_col, badge_col = st.columns([1, 3])
     streak_col.metric("🔥 Çalışma serisi", f"{study_streak} gün")
     badge_col.markdown(f"<div class='soft-card' style='padding:.85rem 1rem'><span class='section-kicker'>GELİŞİM ROZETİ</span><p style='margin-top:.3rem'>🏅 {streak_badge} · Her gün kısa bir oturum bile serini sürdürür.</p></div>", unsafe_allow_html=True)
@@ -1018,6 +1315,7 @@ def render_dashboard(user_id: int, username: str) -> None:
             focus_logs.append({"id": uuid.uuid4().hex[:10], "date": focus_day.isoformat(), "minutes": int(minutes),
                                "subject": subject, "note": note.strip()})
             write_user_json(user_id, "study_sessions", focus_logs)
+            award_xp(user_id, f"session:{focus_logs[-1]['id']}", max(5, int(minutes) // 5), "Çalışma oturumu")
             st.success("Çalışma oturumu kaydedildi.")
             st.rerun()
 
@@ -1035,6 +1333,7 @@ def render_dashboard(user_id: int, username: str) -> None:
                     if task_actions[0].button("✓ Tamamlandı", key=f"dash_done_{item.get('id', task_index)}", use_container_width=True):
                         item["done"] = True
                         write_user_json(user_id, "study_tasks", tasks)
+                        award_xp(user_id, f"task:{item.get('id', task_index)}", 10, "Planlı görev")
                         st.rerun()
                     if task_actions[1].button("Yarına taşı", key=f"dash_defer_{item.get('id', task_index)}", use_container_width=True):
                         item["date"] = (today + timedelta(days=1)).isoformat()
@@ -1122,6 +1421,7 @@ def render_focus_timer(user_id: int) -> None:
         logs.append({"id": uuid.uuid4().hex[:10], "date": date.today().isoformat(), "minutes": elapsed_minutes,
                      "subject": state.get("focus_timer_subject", "Ders"), "note": "Odak modu seansı"})
         write_user_json(user_id, "study_sessions", logs)
+        award_xp(user_id, f"session:{logs[-1]['id']}", max(5, elapsed_minutes // 5), "Odak seansı")
         state.focus_timer_deadline = None
         state.focus_timer_paused = False
         state.focus_timer_done = True
@@ -1137,6 +1437,7 @@ def render_focus_timer(user_id: int) -> None:
                      "minutes": int(state.get("focus_timer_duration", 25)),
                      "subject": state.get("focus_timer_subject", "Ders"), "note": "Odak modu tamamlandı"})
         write_user_json(user_id, "study_sessions", logs)
+        award_xp(user_id, f"session:{logs[-1]['id']}", max(5, int(state.get("focus_timer_duration", 25)) // 5), "Odak seansı tamamlandı")
         state.focus_timer_deadline = None
         state.focus_timer_paused = False
         state.focus_timer_done = True
@@ -1308,16 +1609,22 @@ def main():
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
                            mime="application/json", use_container_width=True)
         with st.expander("Yedekten geri yükle"):
-            backup_upload = st.file_uploader("ANKA JSON yedeği", type=["json"], key="restore_backup_file")
+            backup_upload = st.file_uploader("ANKA yedeği veya çevrimdışı değişiklik JSON'u", type=["json"], key="restore_backup_file")
             if backup_upload and st.button("Yedeği bu hesaba uygula", key="restore_backup_button", use_container_width=True):
                 restored, restore_message = restore_account_backup(user_id, backup_upload)
                 (st.success if restored else st.error)(restore_message)
                 if restored:
                     st.rerun()
-        theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], index=1, key="theme_mode")
+        unlocked_themes = ["Açık", "Koyu"]
+        current_xp = xp_profile(user_id)["xp"]
+        if current_xp >= 300:
+            unlocked_themes.append("🔥 Alev Kanatlı")
+        if current_xp >= 700:
+            unlocked_themes.append("🌌 Kozmik Anka")
+        theme_mode = st.selectbox("🎨 Tema", unlocked_themes, index=1, key="theme_mode")
         st.divider()
 
-    if theme_mode == "Koyu":
+    if theme_mode != "Açık":
         theme_css = """
         :root { --ink:#f1f3f6; --muted:#aeb7c5; --brand:#ff5148; --mint:#ffb24c; --gold:#ffd36e; --line:#333a46; --paper:#11151c; }
         html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a12,transparent 24%),linear-gradient(145deg,#10141b,#17191f 56%,#12151c)!important; background-attachment:fixed!important; }
@@ -1364,7 +1671,7 @@ def main():
         [data-testid="stForm"] { background:#fff!important;border:1px solid #e5ddd7!important;border-radius:18px!important;padding:18px!important;box-shadow:0 12px 30px #5430200c!important; }
         """
     st.markdown(f"<style>{theme_css}</style>", unsafe_allow_html=True)
-    if theme_mode == "Koyu":
+    if theme_mode != "Açık":
         phoenix_theme_css = """
         :root { --ink:#f4eefa;--muted:#b5a8c0;--brand:#f05b61;--mint:#db8df0;--gold:#ffc578;--line:#3c2d45;--paper:#120e18; }
         html,body,[data-testid="stAppViewContainer"] { background:#120e18!important;background-image:radial-gradient(ellipse at 82% 0%,#9e3db927,transparent 38%),radial-gradient(ellipse at 8% 36%,#dc39431c,transparent 34%),linear-gradient(145deg,#110d18,#18121e 52%,#120f19)!important;background-attachment:fixed!important; }
@@ -1402,6 +1709,10 @@ def main():
         .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#fffafd!important;color:#2d2033!important;border-color:#e3d3e7!important; }
         """
     st.markdown(f"<style>{phoenix_theme_css}</style>", unsafe_allow_html=True)
+    if theme_mode == "🔥 Alev Kanatlı":
+        st.markdown("<style>:root{--brand:#f06b42!important;--mint:#ff9f5b!important;--gold:#ffd06e!important}.hero-card{background:radial-gradient(circle at 82% 48%,#f3a54746,transparent 31%),linear-gradient(112deg,#211315,#58211f 58%,#a43b2c)!important}.phoenix-backdrop{opacity:.13!important}</style>", unsafe_allow_html=True)
+    elif theme_mode == "🌌 Kozmik Anka":
+        st.markdown("<style>:root{--brand:#a85cf2!important;--mint:#62d7ee!important;--gold:#f6b95b!important}.hero-card{background:radial-gradient(circle at 82% 48%,#9d5fff55,transparent 34%),linear-gradient(112deg,#110e1d,#271744 57%,#49234f)!important}.phoenix-backdrop{opacity:.14!important}</style>", unsafe_allow_html=True)
     st.markdown("""<style>
     [data-testid="stAppViewContainer"] .main { position:relative; }
     [data-testid="stMainBlockContainer"] { position:relative; }
@@ -1467,7 +1778,7 @@ def main():
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
         active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "🧭 Konu Haritası", "📅 Program", "🎓 Sınav Planlayıcı", "📈 İlerleme",
-                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "⏱️ YPT Saatlerim", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
+                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "⏱️ YPT Saatlerim", "🔥 AnkaXP & Arkadaş", "📦 Çevrimdışı çalışma", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
         st.markdown("<div class='side-nav-label'>DURUM</div>", unsafe_allow_html=True)
@@ -1480,6 +1791,10 @@ def main():
         render_world_panel()
     if active_view == "⏱️ YPT Saatlerim":
         render_ypt_bridge(user_id)
+    if active_view == "🔥 AnkaXP & Arkadaş":
+        render_anka_social(user_id, st.session_state.get("username", "Öğrenci"))
+    if active_view == "📦 Çevrimdışı çalışma":
+        render_offline_kit(user_id)
     if active_view == "📝 Soru Analizi":
         st.subheader("Soru hata laboratuvarı")
         st.caption("Yanlış soruyu çözümle, hata türünü kaydet ve aralıklı tekrar kuyruğuna al.")
@@ -1504,7 +1819,7 @@ def main():
                     mistakes.append({"id": uuid.uuid4().hex[:10], "subject": mistake_subject,
                                      "topic": mistake_topic.strip() or uploaded.name, "error_kind": error_kind,
                                      "created_at": date.today().isoformat(), "next_review": first_review.isoformat(),
-                                     "review_count": 0, "mastered": False, "analysis": analysis})
+                                     "review_count": 0, "mastered": False, "confidence": 1, "analysis": analysis})
                     write_user_json(user_id, "wrong_questions", mistakes)
                     st.success("Analiz hafızaya alındı ve tekrar kuyruğuna eklendi.")
                 except Exception as exc:
@@ -1520,33 +1835,57 @@ def main():
         for mistake in due_mistakes:
             with st.container(border=True):
                 st.markdown(f"**{html.escape(mistake.get('subject', 'Ders'))} · {html.escape(mistake.get('topic', 'Konu'))}**")
-                st.caption(f"Hata türü: {mistake.get('error_kind', 'Belirtilmedi')} · Tekrar: {mistake.get('review_count', 0)}")
+                st.caption(f"Hata türü: {mistake.get('error_kind', 'Belirtilmedi')} · Başarılı tekrar: {mistake.get('review_count', 0)} · Hâkimiyet: {mistake.get('confidence', 1)}/5")
                 with st.expander("Çözüm analizini aç"):
                     st.markdown(mistake.get("analysis", ""))
+                review_result = st.radio("Tekrar sonucu", ["Doğru çözdüm", "Yine zorlandım"], horizontal=True,
+                                         key=f"review_result_{mistake['id']}")
                 review_actions = st.columns(2)
                 if review_actions[0].button("Tekrar ettim", key=f"review_done_{mistake['id']}", use_container_width=True):
-                    intervals = [1, 3, 7, 14, 30]
-                    mistake["review_count"] = int(mistake.get("review_count", 0)) + 1
-                    interval = intervals[min(mistake["review_count"] - 1, len(intervals) - 1)]
+                    intervals = [3, 7, 21]
+                    if review_result == "Doğru çözdüm":
+                        mistake["review_count"] = int(mistake.get("review_count", 0)) + 1
+                        interval = intervals[min(mistake["review_count"] - 1, len(intervals) - 1)]
+                        mistake["confidence"] = min(5, int(mistake.get("confidence", 1)) + 1)
+                    else:
+                        mistake["review_count"] = 0
+                        interval = 1
+                        mistake["confidence"] = max(1, int(mistake.get("confidence", 1)) - 1)
                     mistake["next_review"] = (date.today() + timedelta(days=interval)).isoformat()
                     write_user_json(user_id, "wrong_questions", mistakes)
+                    if review_result == "Doğru çözdüm":
+                        award_xp(user_id, f"review:{mistake['id']}:{mistake['review_count']}:{date.today().isoformat()}", 5, "Yanlış soruyu tekrar")
                     st.rerun()
                 if review_actions[1].button("Artık biliyorum", key=f"review_mastered_{mistake['id']}", use_container_width=True):
                     mistake["mastered"] = True
                     write_user_json(user_id, "wrong_questions", mistakes)
+                    award_xp(user_id, f"mastered:{mistake['id']}", 10, "Konu hâkimiyeti")
                     st.rerun()
 
     if active_view == "🧭 Konu Haritası":
         st.markdown("# 🧭 TYT · AYT konu haritası")
         st.caption("Kendi konu listenle eksiklerini gör, tekrar sırası belirle ve ilerlemeni kalıcı olarak takip et.")
+        st.caption("Konu soru sayıları resmi bir ÖSYM sınıflaması değildir; son 5 kitapçığa bakıp kendi doğruladığın konu etiketlemesini gir.")
+        st.link_button("MEB resmî öğretim programları", "https://tymm.meb.gov.tr/ogretim-programlari", help="Müfredat programlarını resmî MEB sayfasından kontrol et.")
+        reference_cols = st.columns(5)
+        reference_urls = [
+            ("2026", "https://www.osym.gov.tr/2026-yuksekogretim-kurumlari-sinavi-2026yks-temel-soru-kitapciklari-ve-cevap-anahtarlari-yayimlandi"),
+            ("2025", "https://www.osym.gov.tr/2025-yuksekogretim-kurumlari-sinavi-2025yks-temel-soru-kitapciklari-ve-cevap-anahtarlari-yayimlandi"),
+            ("2024", "https://www.osym.gov.tr/2024yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari"),
+            ("2023", "https://www.osym.gov.tr/2023yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari"),
+            ("2022", "https://www.osym.gov.tr/2022yks-tyt-ayt-ve-ydt-temel-soru-kitapciklari-ve-cevap-anahtarlari"),
+        ]
+        for source_col, (source_year, source_url) in zip(reference_cols, reference_urls):
+            source_col.link_button(f"{source_year} kitapçıkları", source_url, use_container_width=True)
         topic_rows = read_user_json(user_id, "topic_map", [])
         topic_rows = topic_rows if isinstance(topic_rows, list) else []
         with st.form("topic_map_add_form", clear_on_submit=True):
-            topic_cols = st.columns([.8, 1.2, 2, 1.25])
+            topic_cols = st.columns([.65, .95, 1.4, 1.0, 1.1])
             exam_track = topic_cols[0].selectbox("Alan", ["TYT", "AYT"])
             topic_subject = topic_cols[1].selectbox("Ders", ["Matematik", "Geometri", "Türkçe", "Fizik", "Kimya", "Biyoloji", "Tarih", "Coğrafya", "Felsefe", "Din Kültürü"])
             topic_name = topic_cols[2].text_input("Konu", placeholder="Örn. Problemler · yaş problemleri")
             prerequisite = topic_cols[3].text_input("Ön koşul (isteğe bağlı)", placeholder="Temel işlemler")
+            frequency_text = topic_cols[4].text_input("5 yıl soru sayısı", placeholder="0,2,1,0,3", help="Eski yıldan yeni yıla, virgülle ayrılmış kendi doğruladığın konu etiketlemesi.")
             topic_added = st.form_submit_button("＋ Konuyu haritaya ekle", use_container_width=True)
         if topic_added:
             if not topic_name.strip():
@@ -1554,8 +1893,16 @@ def main():
             elif any(row.get("track") == exam_track and row.get("subject") == topic_subject and row.get("topic", "").casefold() == topic_name.strip().casefold() for row in topic_rows):
                 st.info("Bu konu haritanda zaten var.")
             else:
+                try:
+                    frequency_5y = [int(value.strip()) for value in frequency_text.split(",")] if frequency_text.strip() else []
+                    if frequency_5y and (len(frequency_5y) != 5 or any(value < 0 for value in frequency_5y)):
+                        raise ValueError
+                except ValueError:
+                    st.error("Soru dağılımı boş bırakılabilir veya 5 adet sıfır ya da pozitif tam sayı olmalı; örnek: 0,2,1,0,3")
+                    st.stop()
                 topic_rows.append({"id": uuid.uuid4().hex[:10], "track": exam_track, "subject": topic_subject,
-                                   "topic": topic_name.strip(), "prerequisite": prerequisite.strip(), "status": "Başlanmadı"})
+                                   "topic": topic_name.strip(), "prerequisite": prerequisite.strip(), "status": "Başlanmadı",
+                                   "frequency_5y": frequency_5y, "frequency_source": "Kullanıcı tarafından ÖSYM kitapçıklarından doğrulandı"})
                 write_user_json(user_id, "topic_map", topic_rows)
                 st.rerun()
         if topic_rows:
@@ -1574,9 +1921,27 @@ def main():
             st.progress(mastered_topics / max(1, total_topics), text=f"Konu hâkimiyeti · %{round(100 * mastered_topics / max(1, total_topics))}")
             for row in visible_topics:
                 with st.container(border=True):
-                    topic_cols = st.columns([2.2, 1.3, 1.5, .55])
+                    topic_cols = st.columns([2.15, 1.1, 1.3, .48, 1.25])
                     prereq_text = f" · Önce: {html.escape(row.get('prerequisite'))}" if row.get("prerequisite") else ""
                     topic_cols[0].markdown(f"**{row.get('track', 'TYT')} · {html.escape(row.get('subject', 'Ders'))}**  \n{html.escape(row.get('topic', 'Konu'))}{prereq_text}")
+                    frequency = row.get("frequency_5y", [])
+                    if isinstance(frequency, list) and len(frequency) == 5:
+                        total_frequency = sum(int(value) for value in frequency)
+                        priority = "Yüksek öncelik" if total_frequency >= 10 else "Orta öncelik" if total_frequency >= 5 else "Temel takip"
+                        topic_cols[0].caption(f"{date.today().year - 4}→{date.today().year}: " + " · ".join(str(value) for value in frequency) + f" = {total_frequency} · {priority}")
+                    frequency_input = topic_cols[4].text_input("5 yıllık dağılım", value=",".join(str(value) for value in frequency) if isinstance(frequency, list) else "",
+                                                               placeholder="0,1,2,0,3", key=f"topic_freq_{row.get('id')}", label_visibility="collapsed")
+                    if frequency_input != (",".join(str(value) for value in frequency) if isinstance(frequency, list) else ""):
+                        try:
+                            new_frequency = [int(value.strip()) for value in frequency_input.split(",")] if frequency_input.strip() else []
+                            if new_frequency and (len(new_frequency) != 5 or any(value < 0 for value in new_frequency)):
+                                raise ValueError
+                            row["frequency_5y"] = new_frequency
+                            row["frequency_source"] = "Kullanıcı tarafından ÖSYM kitapçıklarından doğrulandı"
+                            write_user_json(user_id, "topic_map", topic_rows)
+                            st.rerun()
+                        except ValueError:
+                            st.warning("Dağılımı boş bırak veya beş sıfır/pozitif tam sayı gir.")
                     current_status = row.get("status", "Başlanmadı")
                     status_options = ["Başlanmadı", "Çalışılıyor", "Tekrar", "Tamamlandı"]
                     status_index = status_options.index(current_status) if current_status in status_options else 0
@@ -1587,6 +1952,8 @@ def main():
                         row["status"] = changed_status
                         row["confidence"] = int(new_confidence)
                         write_user_json(user_id, "topic_map", topic_rows)
+                        if changed_status == "Tamamlandı" and current_status != "Tamamlandı":
+                            award_xp(user_id, f"topic_done:{row.get('id')}", 5, "Konu tamamlandı")
                         st.rerun()
                     if topic_cols[3].button("×", key=f"topic_delete_{row.get('id')}", help="Konuyu haritadan sil"):
                         write_user_json(user_id, "topic_map", [item for item in topic_rows if item.get("id") != row.get("id")])
@@ -1909,6 +2276,8 @@ def main():
                         if item.get("id") == task["id"]:
                             item["done"] = state
                     write_user_json(user_id, "study_tasks", tasks)
+                    if state:
+                        award_xp(user_id, f"task:{task['id']}", 10, "Planlı görev")
                     st.rerun()
             with st.expander("Haftanın diğer görevleri"):
                 for task in tasks:
@@ -1921,6 +2290,8 @@ def main():
                                 if item.get("id") == task["id"]:
                                     item["done"] = state
                             write_user_json(user_id, "study_tasks", tasks)
+                            if state:
+                                award_xp(user_id, f"task:{task['id']}", 10, "Planlı görev")
                             st.rerun()
 
         st.divider()
@@ -1936,14 +2307,75 @@ def main():
             add_exam = st.form_submit_button("Denemeyi kaydet")
         if add_exam:
             results = read_user_json(user_id, "exam_results", [])
-            results.append({"date": exam_date.isoformat(), "name": exam_label.strip() or "Deneme",
+            results.append({"id": uuid.uuid4().hex[:10], "date": exam_date.isoformat(), "name": exam_label.strip() or "Deneme",
                             "Türkçe": net_turkish, "Matematik": net_math, "Sosyal": net_social, "Fen": net_science,
                             "Toplam": net_turkish + net_math + net_social + net_science})
+            award_xp(user_id, f"exam:{results[-1]['id']}", 10, "Deneme analizi")
             write_user_json(user_id, "exam_results", results)
             st.success("Deneme sonucu kaydedildi.")
             st.rerun()
         results = read_user_json(user_id, "exam_results", [])
         if results:
+            st.markdown("### Deneme konu karnesi")
+            st.caption("Son 10 denemeden konu bazlı doğru/yanlış verisi toplanır. AI raporu yalnızca yeterli örnek olan konular için başarı oranı verir.")
+            topic_results = read_user_json(user_id, "exam_topic_results", [])
+            if isinstance(topic_results, list):
+                with st.form("exam_topic_result_form", clear_on_submit=True):
+                    topic_exam = st.selectbox("Hangi deneme?", results,
+                                              format_func=lambda item: f"{item.get('date', '')} · {item.get('name', 'Deneme')}",
+                                              key="topic_result_exam")
+                    topic_entry_cols = st.columns(4)
+                    topic_subject = topic_entry_cols[0].selectbox("Ders", ["Matematik", "Fizik", "Kimya", "Biyoloji", "Türkçe", "Tarih", "Coğrafya", "Felsefe", "Geometri"])
+                    topic_entry = topic_entry_cols[1].text_input("Konu", placeholder="Dalgalar")
+                    attempted = topic_entry_cols[2].number_input("Çözülen", min_value=1, max_value=100, value=10)
+                    correct = topic_entry_cols[3].number_input("Doğru", min_value=0, max_value=100, value=5)
+                    topic_saved = st.form_submit_button("Konu sonucunu ekle", use_container_width=True)
+                if topic_saved:
+                    if not topic_entry.strip():
+                        st.warning("Konu adını gir.")
+                    elif correct > attempted:
+                        st.warning("Doğru sayısı çözülen soru sayısından büyük olamaz.")
+                    else:
+                        topic_results.append({"id": uuid.uuid4().hex[:10], "exam_id": topic_exam.get("id", topic_exam.get("date")),
+                                              "exam_date": topic_exam.get("date", ""), "exam_name": topic_exam.get("name", "Deneme"),
+                                              "subject": topic_subject, "topic": topic_entry.strip(),
+                                              "attempted": int(attempted), "correct": int(correct)})
+                        write_user_json(user_id, "exam_topic_results", topic_results)
+                        st.success("Konu sonucu deneme karnesine eklendi.")
+                        st.rerun()
+                recent_exam_rows_for_topics = sorted(results, key=lambda item: item.get("date", ""), reverse=True)[:10]
+                recent_exam_ids = {str(item.get("id", item.get("date", ""))) for item in recent_exam_rows_for_topics}
+                recent_topic_results = [item for item in topic_results
+                                        if str(item.get("exam_id", item.get("exam_date", ""))) in recent_exam_ids]
+                if recent_topic_results:
+                    topic_performance = {}
+                    for item in recent_topic_results:
+                        key = (item.get("subject", "Ders"), item.get("topic", "Konu"))
+                        agg = topic_performance.setdefault(key, {"doğru": 0, "soru": 0})
+                        agg["doğru"] += int(item.get("correct", 0))
+                        agg["soru"] += int(item.get("attempted", 0))
+                    perf_frame = pd.DataFrame([{"Ders": subject, "Konu": topic, "Doğru": vals["doğru"],
+                                                "Soru": vals["soru"], "Başarı (%)": round(100 * vals["doğru"] / max(1, vals["soru"]))}
+                                               for (subject, topic), vals in topic_performance.items()])
+                    st.dataframe(perf_frame.sort_values(["Başarı (%)", "Soru"]), use_container_width=True, hide_index=True)
+                    if st.button("✨ Haftalık nokta atışı teşhis oluştur", key="generate_exam_predictor", use_container_width=True):
+                        recent_exam_rows = recent_exam_rows_for_topics
+                        eligible = [row for row in perf_frame.to_dict("records") if row["Soru"] >= 5]
+                        weak = sorted(eligible, key=lambda row: row["Başarı (%)"])[:5]
+                        wrong_topics = [{"ders": item.get("subject"), "konu": item.get("topic"), "hata": item.get("error_kind"), "tekrar": item.get("review_count", 0)}
+                                        for item in read_user_json(user_id, "wrong_questions", [])]
+                        evidence = {"son_deneme_netleri": recent_exam_rows,
+                                    "konu_bazli_yeterli_ornekli_basari": weak,
+                                    "yanlis_defteri": wrong_topics,
+                                    "kullanicinin_konu_oncelik_matrisi": read_user_json(user_id, "topic_map", [])}
+                        try:
+                            diagnosis = generate_text("Yalnızca aşağıdaki JSON verisine dayanarak Türkçe, kısa ve ölçülü bir haftalık YKS teşhis raporu hazırla. En fazla 3 konu öner; her öneride kanıt sayısını, başarı oranını ve 3 günlük uygulanabilir adımı yaz. Beşten az örneği olan konuda yüzde tahmini yapma; veri yoksa bunu açıkça söyle. Net veya soru dağılımı uydurma. Veri: " + json.dumps(evidence, ensure_ascii=False))
+                            st.session_state.exam_predictor_report = diagnosis
+                            save_memory(user_id, "deneme_teshisi", diagnosis, "Haftalık deneme teşhisi")
+                        except Exception as exc:
+                            st.error(f"Teşhis raporu üretilemedi: {exc}")
+                    if st.session_state.get("exam_predictor_report"):
+                        st.markdown(st.session_state.exam_predictor_report)
             try:
                 import pandas as pd
                 ordered_results = sorted(results, key=lambda item: item.get("date", ""))
