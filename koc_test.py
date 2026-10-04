@@ -54,6 +54,7 @@ st.markdown("""
 <style>
 :root { --ink:#14233b; --muted:#68778e; --brand:#3858d6; --mint:#79e0bd; --gold:#ffce73; --line:#e4e9f1; --paper:#f5f7fb; }
 html, body, [data-testid="stAppViewContainer"] { background-color:var(--paper); background-image:radial-gradient(#2437550b .7px, transparent .7px); background-size:18px 18px; }
+html, body, [data-testid="stAppViewContainer"] { background-color:var(--paper); }
 [data-testid="stAppViewContainer"] .main { color:var(--ink); font-family:Inter,'Segoe UI',Roboto,sans-serif; }
 [data-testid="stMainBlockContainer"] { max-width:1320px; padding-top:1.8rem; padding-bottom:4rem; }
 h1,h2,h3 { color:var(--ink); font-weight:700; letter-spacing:-.025em; }
@@ -98,6 +99,13 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .soft-card h3 { margin:.25rem 0 .4rem; } .soft-card p { margin:0; font-size:.91rem; line-height:1.55; }
 .mini-icon { display:inline-grid; place-items:center; width:38px; height:38px; border-radius:12px; background:#edf0ff; font-size:1.2rem; }
 .empty-state { border:1px dashed #ccd5e4; border-radius:16px; padding:1.3rem; color:var(--muted); background:#ffffffa6; }
+.empty-state { border:1px dashed #ccd5e4; border-radius:16px; padding:1.3rem; color:var(--muted); background:#ffffffa6; }
+.week-empty { min-height:230px;display:flex;align-items:center;gap:1.2rem;padding:1.5rem;border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,#fff,#f4f6fa);box-shadow:0 8px 25px #1d2c4408; }
+.week-empty-copy strong { display:block;color:var(--ink);font-size:1.02rem;margin-bottom:.35rem; }
+.week-empty-copy span { display:block;color:var(--muted);font-size:.88rem;line-height:1.55;max-width:300px; }
+.week-bars { height:112px;display:flex;align-items:flex-end;gap:7px;padding:12px;border-radius:14px;background:linear-gradient(180deg,#f6f7fa,#eef1f6); }
+.week-bars i { width:12px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#e48a56,#bb483d);opacity:.3; }
+@media(max-width:760px) { .week-empty { min-height:180px;padding:1rem;gap:.8rem; } .week-bars { gap:4px;padding:8px; } .week-bars i { width:8px; } }
 @media(max-width:760px) { [data-testid="stMainBlockContainer"] { padding:1rem 1rem 3rem; } .hero-card { min-height:200px; padding:1.5rem; border-radius:19px; } .hero-art { width:26%; min-width:100px; } .hero-card h1 { font-size:2rem; } [data-testid="stTabs"] [data-baseweb="tab"] { padding:0 9px; font-size:.82rem; } }
 @media(prefers-reduced-motion:reduce) { *, *:before, *:after { transition:none !important; scroll-behavior:auto !important; } }
 </style>
@@ -613,12 +621,27 @@ def render_dashboard(user_id: int, username: str) -> None:
         dates = [(today - timedelta(days=i)).isoformat() for i in reversed(range(7))]
         focus_by_date = {d: sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == d) for d in dates}
         labels = {d: f"{['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][date.fromisoformat(d).weekday()]} {date.fromisoformat(d).day}" for d in dates}
+        if sum(focus_by_date.values()) == 0:
+            placeholder_bars = "".join(f"<i style='height:{height}px'></i>" for height in [34, 54, 42, 72, 48, 62, 38])
+            st.markdown(
+                "<div class='week-empty'><div class='week-empty-copy'><strong>Haftanın ilk adımını atalım</strong>"
+                "<span>Henüz çalışma oturumu yok. İlk oturumunu kaydettiğinde haftalık süre grafiğin burada görünecek.</span>"
+                f"</div><div class='week-bars' aria-hidden='true'>{placeholder_bars}</div></div>",
+                unsafe_allow_html=True,
+            )
+        else:
         try:
             import pandas as pd
             focus_frame = pd.DataFrame([{"Gün": labels[d], "Dakika": focus_by_date[d]} for d in dates])
             st.bar_chart(focus_frame, x="Gün", y="Dakika", color="#3858d6", height=230)
         except ImportError:
             st.info("Grafik için pandas paketini yükleyin.")
+            try:
+                import pandas as pd
+                focus_frame = pd.DataFrame([{"Gün": labels[d], "Dakika": focus_by_date[d]} for d in dates])
+                st.bar_chart(focus_frame, x="Gün", y="Dakika", color="#d45a42", height=230)
+            except ImportError:
+                st.info("Haftalık grafik için pandas paketini yükleyin.")
         with st.form("focus_session_form", clear_on_submit=True):
             st.markdown("**Çalışma oturumu ekle**")
             f1, f2, f3 = st.columns([1.2, 1, 1])
@@ -775,6 +798,7 @@ def main():
         theme_css = """
         :root { --ink:#f1f3f6; --muted:#aeb7c5; --brand:#ff5148; --mint:#ffb24c; --gold:#ffd36e; --line:#333a46; --paper:#11151c; }
         html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a18,transparent 24%),repeating-linear-gradient(135deg,#ffffff04 0 1px,transparent 1px 22px)!important; background-attachment:fixed!important; }
+        html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a12,transparent 24%),linear-gradient(145deg,#10141b,#17191f 56%,#12151c)!important; background-attachment:fixed!important; }
         [data-testid="stAppViewContainer"] .main { color:#f1f3f6!important; }
         h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
         [data-testid="stSidebar"] { background:linear-gradient(165deg,#20191b,#12161e 62%,#19191a)!important; border-right:1px solid #59312d!important; }
@@ -784,6 +808,11 @@ def main():
         [data-testid="stMetricValue"],.soft-card h3 { color:#f4f5f7!important; }
         .soft-card p,.empty-state { color:#b9c2cf!important; }
         .empty-state { background:#1a2029!important;border-color:#454d59!important; }
+        .week-empty { background:linear-gradient(135deg,#1b212b,#171c24)!important;border-color:#353d49!important; }
+        .week-empty-copy strong { color:#f1f3f6!important; }
+        .week-empty-copy span { color:#aeb8c6!important; }
+        .week-bars { background:linear-gradient(180deg,#252c36,#202630)!important; }
+        [data-testid="stForm"] { background:linear-gradient(145deg,#20252e,#191e26)!important;border:1px solid #343c48!important;border-radius:18px!important;padding:18px!important;box-shadow:0 12px 32px #05070c55!important; }
         .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#171d26!important;color:#f1f3f6!important;border-color:#414957!important; }
         [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#202630!important; }
         [data-testid="stTabs"] [data-baseweb="tab"] { color:#c0c8d3!important; }
@@ -799,6 +828,7 @@ def main():
         theme_css = """
         :root { --ink:#202b3b; --muted:#687486; --brand:#b63e32; --mint:#397c70; --gold:#aa671e; --line:#e5ddd7; --paper:#f7f5f2; }
         html,body,[data-testid="stAppViewContainer"] { background-color:#f7f5f2!important; background-image:radial-gradient(ellipse at 82% 7%,#e9513512,transparent 33%),radial-gradient(ellipse at 91% 12%,#ffbf5919,transparent 23%),repeating-linear-gradient(135deg,#6a3d2a05 0 1px,transparent 1px 24px)!important; background-attachment:fixed!important; }
+        html,body,[data-testid="stAppViewContainer"] { background-color:#f7f5f2!important; background-image:radial-gradient(ellipse at 82% 7%,#e9513512,transparent 33%),radial-gradient(ellipse at 91% 12%,#ffbf5912,transparent 23%),linear-gradient(145deg,#f8f6f3,#f2f0ee)!important; background-attachment:fixed!important; }
         [data-testid="stSidebar"] { background:linear-gradient(165deg,#292326,#171b22 70%,#202023)!important;border-right:1px solid #513331!important; }
         .side-mark { background:linear-gradient(135deg,#ffbd5b,#f26748)!important;color:#351d1b!important; }
         .side-nav-label { color:#ffbd90!important; }
@@ -806,6 +836,8 @@ def main():
         .stButton button:hover { background:#872d27!important;border-color:#872d27!important; }
         .hero-card { background:linear-gradient(115deg,#252022 0%,#60302a 56%,#a44231 100%)!important; }
         .hero-eyebrow { color:#ffd17d!important; }
+        .week-empty { background:linear-gradient(135deg,#fff,#f4f1ee)!important; }
+        [data-testid="stForm"] { background:#fff!important;border:1px solid #e5ddd7!important;border-radius:18px!important;padding:18px!important;box-shadow:0 12px 30px #5430200c!important; }
         """
     st.markdown(f"<style>{theme_css}</style>", unsafe_allow_html=True)
     st.markdown("""<style>
@@ -816,6 +848,7 @@ def main():
     @media(max-width:760px) { [data-testid="stAppViewContainer"]::before { width:130px;height:130px;right:-65px;top:80px;opacity:.11; } }
     </style>""", unsafe_allow_html=True)
     st.title("JARVIS · YKS Çalışma Stüdyosu")
+    st.title("YKS ÇALIŞMA STÜDYOSU")
     st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
 
     if not api_ready:
