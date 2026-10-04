@@ -103,6 +103,13 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .week-empty { min-height:230px;display:flex;align-items:center;gap:1.2rem;padding:1.5rem;border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,#fff,#f4f6fa);box-shadow:0 8px 25px #1d2c4408; }
 .week-empty-copy strong { display:block;color:var(--ink);font-size:1.02rem;margin-bottom:.35rem; }
 .week-empty-copy span { display:block;color:var(--muted);font-size:.88rem;line-height:1.55;max-width:300px; }
+.study-heatmap { display:grid;grid-template-columns:repeat(14,minmax(16px,1fr));gap:7px;padding:.9rem;border:1px solid var(--line);border-radius:15px;background:linear-gradient(145deg,#fff,#f6f4f2); }
+.heat-cell { display:block;width:18px;height:18px;border-radius:5px;background:#eee9e6;border:1px solid #d9d1cd; }
+.study-heatmap .heat-cell { width:100%;height:auto;aspect-ratio:1; }
+.heat-1 { background:#f6c7ad!important;border-color:#edb99b!important; } .heat-2 { background:#ee9978!important;border-color:#e58b69!important; }
+.heat-3 { background:#d75b43!important;border-color:#c84c36!important; } .heat-4 { background:#842a27!important;border-color:#842a27!important; }
+.heat-legend { display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:8px;font-size:.73rem;color:var(--muted); }
+.heat-legend .heat-cell { width:13px;height:13px;border-radius:4px; }
 .week-bars { height:112px;display:flex;align-items:flex-end;gap:7px;padding:12px;border-radius:14px;background:linear-gradient(180deg,#f6f7fa,#eef1f6); }
 .week-bars i { width:12px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#e48a56,#bb483d);opacity:.3; }
 .calendar-day { min-height:148px;padding:.7rem;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#fff,#f4f5f8);box-shadow:0 5px 16px #1d2c4408; }
@@ -811,17 +818,31 @@ def render_dashboard(user_id: int, username: str) -> None:
     tasks = read_user_json(user_id, "study_tasks", [])
     focus_logs = read_user_json(user_id, "study_sessions", [])
     exam_results = read_user_json(user_id, "exam_results", [])
+    ypt_logs = read_user_json(user_id, "ypt_sessions", [])
+    planned_exams = read_user_json(user_id, "exam_plan", [])
     records = load_memory(user_id)
     today = date.today()
     today_name = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][today.weekday()]
     safe_name = html.escape(username, quote=True)
     today_minutes = sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == today.isoformat())
     today_focus_label = f"{today_minutes // 60} sa {today_minutes % 60:02d} dk" if today_minutes >= 60 else f"{today_minutes} dk"
+    ypt_today_minutes = sum(int(item.get("minutes", 0)) for item in ypt_logs if item.get("date") == today.isoformat())
+    ypt_today_label = f"{ypt_today_minutes // 60} sa {ypt_today_minutes % 60:02d} dk" if ypt_today_minutes >= 60 else f"{ypt_today_minutes} dk"
     task_count = len(tasks)
     done_count = sum(bool(item.get("done")) for item in tasks)
     completion = round(100 * done_count / task_count) if task_count else 0
     latest_exam = max(exam_results, key=lambda item: item.get("date", ""), default=None)
     latest_net = f"{latest_exam.get('Toplam', 0):g}" if latest_exam else "—"
+    future_exams = []
+    for planned_exam in planned_exams:
+        try:
+            target_day = date.fromisoformat(planned_exam.get("date", ""))
+            if target_day >= today:
+                future_exams.append((target_day, planned_exam))
+        except ValueError:
+            continue
+    nearest_exam = min(future_exams, key=lambda item: item[0]) if future_exams else None
+    exam_countdown = f"{nearest_exam[1].get('name', 'Sınav')} · {max(0, (nearest_exam[0] - today).days)} gün kaldı" if nearest_exam else "Tarih ekle"
     resource_count = sum(item.get("type") in {"kaynak_linki", "kaynak_pdf"} for item in records)
     weekly_goal = max(60, int(read_user_json(user_id, "weekly_goal", 900)))
     week_minutes = sum(int(item.get("minutes", 0)) for item in focus_logs
@@ -855,6 +876,7 @@ def render_dashboard(user_id: int, username: str) -> None:
         <h1>Selam {safe_name}.<br>Bugün hedeflerine bir adım daha.</h1>
         <p>Planını sade tut, ilerlemeni gör ve sıradaki doğru işe odaklan. Küçük ama düzenli adımlar büyük fark yaratır.</p>
         <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y} &nbsp;·&nbsp; Bugünün çalışma alanı</span>
+        <span class="hero-pill" style="margin-left:.45rem">🎓 &nbsp; {html.escape(exam_countdown)}</span>
       </div>
       <svg class="hero-art" viewBox="0 0 300 220" role="img" aria-label="Çalışma hedefi ve ilerleme çizimi">
         <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ef0d0"/><stop offset="1" stop-color="#ffce73"/></linearGradient></defs>
@@ -876,6 +898,10 @@ def render_dashboard(user_id: int, username: str) -> None:
     k2.metric("Plan ilerlemesi", f"%{completion}", help=f"{done_count}/{task_count} görev tamamlandı")
     k3.metric("Son deneme neti", latest_net, help=latest_exam.get("name", "Deneme") if latest_exam else "Henüz deneme sonucu eklenmedi")
     k4.metric("Kaynak arşivin", str(resource_count), help="PDF ve bağlantı kaynakları")
+    extra_a, extra_b, extra_c = st.columns(3)
+    extra_a.metric("🎓 Sıradaki sınav", exam_countdown, help="Sınav tarihini Sınav Planlayıcı bölümünden ayarla")
+    extra_b.metric("⏱️ YPT · bugün", ypt_today_label, help="İçe aktarılan YPT kayıtları; site oturumlarından ayrı gösterilir")
+    extra_c.metric("📚 YPT · 7 gün", f"{sum(int(item.get('minutes', 0)) for item in ypt_logs if (today - timedelta(days=6)).isoformat() <= item.get('date', '') <= today.isoformat()) // 60} sa", help="Son yedi günde içe aktarılan YPT süresi")
     streak_col, badge_col = st.columns([1, 3])
     streak_col.metric("🔥 Çalışma serisi", f"{study_streak} gün")
     badge_col.markdown(f"<div class='soft-card' style='padding:.85rem 1rem'><span class='section-kicker'>GELİŞİM ROZETİ</span><p style='margin-top:.3rem'>🏅 {streak_badge} · Her gün kısa bir oturum bile serini sürdürür.</p></div>", unsafe_allow_html=True)
@@ -906,6 +932,26 @@ def render_dashboard(user_id: int, username: str) -> None:
             import pandas as pd
             focus_frame = pd.DataFrame([{"Gün": labels[d], "Dakika": focus_by_date[d]} for d in dates])
             st.bar_chart(focus_frame, x="Gün", y="Dakika", color="#d45a42", height=230)
+        with st.expander("📆 Son 4 haftanın çalışma haritası", expanded=True):
+            heat_days = [today - timedelta(days=i) for i in reversed(range(28))]
+            heat_counts = {day.isoformat(): sum(int(item.get("minutes", 0)) for item in focus_logs
+                                                 if item.get("date") == day.isoformat()) for day in heat_days}
+            max_heat = max(heat_counts.values(), default=0)
+            heat_cells = []
+            for day in heat_days:
+                mins = heat_counts[day.isoformat()]
+                intensity = 0 if mins == 0 else min(4, max(1, int(mins / max(1, max_heat) * 4 + .5)))
+                heat_cells.append(f"<span title='{day:%d.%m.%Y}: {mins} dk' class='heat-cell heat-{intensity}'></span>")
+            st.markdown("<div class='study-heatmap'>" + "".join(heat_cells) + "</div><div class='heat-legend'><span>Az</span><i class='heat-cell heat-0'></i><i class='heat-cell heat-1'></i><i class='heat-cell heat-2'></i><i class='heat-cell heat-3'></i><i class='heat-cell heat-4'></i><span>Çok</span></div>", unsafe_allow_html=True)
+            st.caption("Renk yoğunluğu, o gün bu sitede kaydedilen çalışma dakikasını gösterir.")
+        subject_minutes = {}
+        for item in focus_logs:
+            if (today - timedelta(days=6)).isoformat() <= item.get("date", "") <= today.isoformat():
+                subject_minutes[item.get("subject", "Diğer")] = subject_minutes.get(item.get("subject", "Diğer"), 0) + int(item.get("minutes", 0))
+        if subject_minutes:
+            st.markdown("**Son 7 gün · derse göre süre**")
+            subject_frame = pd.DataFrame([{"Ders": subject, "Dakika": minutes} for subject, minutes in sorted(subject_minutes.items(), key=lambda pair: pair[1], reverse=True)])
+            st.bar_chart(subject_frame, x="Ders", y="Dakika", color="#b83e32", height=240)
         with st.form("focus_session_form", clear_on_submit=True):
             st.markdown("**Çalışma oturumu ekle**")
             f1, f2, f3 = st.columns([1.2, 1, 1])
@@ -1208,7 +1254,7 @@ def main():
     records = load_memory(user_id)
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
-        active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme",
+        active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "🎓 Sınav Planlayıcı", "📈 İlerleme",
                                              "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "⏱️ YPT Saatlerim", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
@@ -1390,8 +1436,130 @@ def main():
             st.success(f"{lesson_number}. ders ilerlemene eklendi.")
             st.rerun()
 
+    if active_view == "🎓 Sınav Planlayıcı":
+        st.markdown("# 🎓 Sınav Planlayıcı")
+        st.caption("TYT, AYT, MSÜ veya kendi deneme hedefin için tarih ve net hedefi belirle. Tarihler senin girdiğin kişisel plan olarak saklanır.")
+        planned = read_user_json(user_id, "exam_plan", [])
+        exam_results_for_plan = read_user_json(user_id, "exam_results", [])
+        nearest = None
+        for item in planned:
+            try:
+                exam_day = date.fromisoformat(item.get("date", ""))
+                if exam_day >= date.today() and (nearest is None or exam_day < nearest[0]):
+                    nearest = (exam_day, item)
+            except ValueError:
+                continue
+        if nearest:
+            countdown_days = (nearest[0] - date.today()).days
+            st.markdown(f"<div style='padding:1.6rem 1.8rem;border-radius:22px;background:radial-gradient(circle at 88% 10%,#ffbc5a55,transparent 27%),linear-gradient(115deg,#211d20,#6d302b 60%,#b84432);color:#fff;box-shadow:0 18px 45px #832d2828'><div style='font-size:.75rem;letter-spacing:.15em;color:#ffd08b;font-weight:800'>SIRADAKİ HEDEF</div><div style='font-size:1.65rem;font-weight:780;margin:.35rem 0'>{html.escape(nearest[1].get('name','Sınav'))}</div><div style='font-size:1rem;opacity:.88'>{nearest[0]:%d %B %Y} · {countdown_days} gün kaldı</div></div>", unsafe_allow_html=True)
+        st.markdown("### Yeni sınav hedefi")
+        with st.form("exam_planner_form", clear_on_submit=True):
+            ex1, ex2, ex3 = st.columns([1.2, 1, 1])
+            exam_type = ex1.selectbox("Sınav türü", ["YKS · TYT", "YKS · AYT", "MSÜ", "Kurum denemesi", "Kişisel hedef"], key="planner_exam_type")
+            target_date = ex2.date_input("Hedef tarih", value=date.today() + timedelta(days=30), key="planner_exam_date")
+            target_net = ex3.number_input("Toplam net hedefi", min_value=0.0, max_value=120.0, value=0.0, step=1.0, help="İsteğe bağlı; boş bırakmak için 0 seç.", key="planner_target_net")
+            exam_title = st.text_input("Hedefe vereceğin ad", placeholder="Örn. Yaz TYT denemesi", key="planner_exam_title")
+            save_exam = st.form_submit_button("＋ Sınav hedefini ekle", use_container_width=True)
+        if save_exam:
+            if target_date < date.today():
+                st.warning("Hedef tarihi bugün veya gelecekte olmalı.")
+            else:
+                planned.append({"id": uuid.uuid4().hex[:10], "name": exam_title.strip() or exam_type,
+                                "type": exam_type, "date": target_date.isoformat(), "target_net": float(target_net)})
+                write_user_json(user_id, "exam_plan", planned)
+                st.success("Sınav hedefi kaydedildi.")
+                st.rerun()
+        if planned:
+            st.markdown("### Planındaki sınavlar")
+            for item in sorted(planned, key=lambda row: row.get("date", "")):
+                try:
+                    exam_day = date.fromisoformat(item.get("date", ""))
+                except ValueError:
+                    continue
+                days_left = (exam_day - date.today()).days
+                with st.container(border=True):
+                    item_col, goal_col, del_col = st.columns([2.1, 1.4, .65])
+                    item_col.markdown(f"**{html.escape(item.get('name','Sınav'))}**  \n{html.escape(item.get('type',''))} · {exam_day:%d.%m.%Y}")
+                    if days_left >= 0:
+                        goal_col.metric("Geri sayım", f"{days_left} gün")
+                    else:
+                        goal_col.metric("Durum", "Tarih geçti")
+                    target = float(item.get("target_net", 0) or 0)
+                    if target > 0 and exam_results_for_plan:
+                        latest_plan_net = max(exam_results_for_plan, key=lambda row: row.get("date", "")).get("Toplam", 0)
+                        goal_col.caption(f"Son deneme {float(latest_plan_net):g} / {target:g} net")
+                        st.progress(min(1.0, max(0.0, float(latest_plan_net) / target)), text="Son deneme / hedef net")
+                    if del_col.button("Sil", key=f"delete_exam_goal_{item.get('id')}", use_container_width=True):
+                        write_user_json(user_id, "exam_plan", [row for row in planned if row.get("id") != item.get("id")])
+                        st.rerun()
+        else:
+            st.markdown("<div class='empty-state'>Henüz sınav hedefi eklemedin. Tarihi belirlediğinde ana ekranda geri sayımı göreceksin.</div>", unsafe_allow_html=True)
+
     if active_view == "📈 İlerleme":
-        st.subheader("Çalışma ve deneme takibi")
+        st.markdown("# 📈 İlerleme Merkezi")
+        st.caption("Çalışma düzenini ve deneme gelişimini tek görünümde incele.")
+        progress_sessions = read_user_json(user_id, "study_sessions", [])
+        progress_ypt = read_user_json(user_id, "ypt_sessions", [])
+        progress_exams = read_user_json(user_id, "exam_results", [])
+        progress_tasks = read_user_json(user_id, "study_tasks", [])
+        today = date.today()
+        completed_tasks = sum(bool(item.get("done")) for item in progress_tasks)
+        progress_metrics = st.columns(4)
+        progress_metrics[0].metric("Site · bugün", f"{sum(int(x.get('minutes',0)) for x in progress_sessions if x.get('date') == today.isoformat())} dk")
+        progress_metrics[1].metric("YPT · bugün", f"{sum(int(x.get('minutes',0)) for x in progress_ypt if x.get('date') == today.isoformat())} dk")
+        progress_metrics[2].metric("Tamamlanan görev", f"{completed_tasks}/{len(progress_tasks)}")
+        progress_metrics[3].metric("Kayıtlı deneme", str(len(progress_exams)))
+        span = st.selectbox("Grafik dönemi", [7, 30, 90], format_func=lambda value: f"Son {value} gün", key="progress_span")
+        cutoff = today - timedelta(days=span-1)
+        days = [cutoff + timedelta(days=index) for index in range(span)]
+        site_by_day = {day.isoformat(): 0 for day in days}
+        ypt_by_day = {day.isoformat(): 0 for day in days}
+        for item in progress_sessions:
+            if item.get("date") in site_by_day:
+                site_by_day[item["date"]] += int(item.get("minutes", 0))
+        for item in progress_ypt:
+            if item.get("date") in ypt_by_day:
+                ypt_by_day[item["date"]] += int(item.get("minutes", 0))
+        trend = pd.DataFrame([{"Tarih": day.strftime("%d.%m"), "Bu site (dk)": site_by_day[day.isoformat()],
+                               "YPT içe aktarımı (dk)": ypt_by_day[day.isoformat()]} for day in days])
+        st.markdown("### Günlük çalışma süresi")
+        if sum(site_by_day.values()) + sum(ypt_by_day.values()):
+            st.area_chart(trend.set_index("Tarih"), color=["#bb4033", "#edaa73"], height=300)
+        else:
+            st.info("Bu dönemde henüz süre yok. Odak seansı veya YPT aktarımı eklediğinde grafik burada oluşacak.")
+        recent_subjects = {}
+        for label, rows in (("Bu site", progress_sessions), ("YPT", progress_ypt)):
+            for item in rows:
+                if cutoff.isoformat() <= item.get("date", "") <= today.isoformat():
+                    key = (item.get("subject", "Diğer"), label)
+                    recent_subjects[key] = recent_subjects.get(key, 0) + int(item.get("minutes", 0))
+        subject_box, activity_box = st.columns([1, 1.2])
+        with subject_box:
+            st.markdown("### Derslere göre toplam")
+            if recent_subjects:
+                subject_frame = pd.DataFrame([{"Ders": subject, "Kaynak": source, "Dakika": minutes}
+                                              for (subject, source), minutes in recent_subjects.items()])
+                st.bar_chart(subject_frame, x="Ders", y="Dakika", color="Kaynak", height=300)
+            else:
+                st.caption("Ders dağılımı için önce çalışma kaydı ekle.")
+        with activity_box:
+            st.markdown("### 5 haftalık çalışma ısı haritası")
+            heat_days = [today - timedelta(days=index) for index in reversed(range(35))]
+            heat_dates = {day.isoformat() for day in heat_days}
+            combined_day_minutes = {day: 0 for day in heat_dates}
+            for item in progress_sessions + progress_ypt:
+                if item.get("date") in combined_day_minutes:
+                    combined_day_minutes[item["date"]] += int(item.get("minutes", 0))
+            peak = max(combined_day_minutes.values(), default=0)
+            cells = []
+            for day in heat_days:
+                amount = combined_day_minutes[day.isoformat()]
+                level = 0 if amount == 0 else min(4, max(1, int(amount / max(1, peak) * 4 + .5)))
+                cells.append(f"<span title='{day:%d.%m.%Y}: {amount} dk' class='heat-cell heat-{level}'></span>")
+            st.markdown("<div class='study-heatmap'>" + "".join(cells) + "</div>", unsafe_allow_html=True)
+            st.caption("YPT içe aktarılan ve bu sitede kaydedilen süreler toplam görünür; aynı oturumu ikisine birden kaydettiysen iki kez sayılır.")
+        st.divider()
+        st.subheader("Çalışma planı ve deneme takibi")
         programs = [row for row in load_memory(user_id) if row.get("type") == "calisma_programi"]
         if programs:
             chosen = st.selectbox("Görev listesine aktarılacak program", programs,
