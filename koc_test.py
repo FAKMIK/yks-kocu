@@ -53,7 +53,6 @@ st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
 st.markdown("""
 <style>
 :root { --ink:#14233b; --muted:#68778e; --brand:#3858d6; --mint:#79e0bd; --gold:#ffce73; --line:#e4e9f1; --paper:#f5f7fb; }
-html, body, [data-testid="stAppViewContainer"] { background-color:var(--paper); background-image:radial-gradient(#2437550b .7px, transparent .7px); background-size:18px 18px; }
 html, body, [data-testid="stAppViewContainer"] { background-color:var(--paper); }
 [data-testid="stAppViewContainer"] .main { color:var(--ink); font-family:Inter,'Segoe UI',Roboto,sans-serif; }
 [data-testid="stMainBlockContainer"] { max-width:1320px; padding-top:1.8rem; padding-bottom:4rem; }
@@ -98,7 +97,6 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .soft-card { height:100%; padding:1.15rem 1.25rem; border:1px solid var(--line); border-radius:16px; background:white; box-shadow:0 4px 16px #1d2c4408; }
 .soft-card h3 { margin:.25rem 0 .4rem; } .soft-card p { margin:0; font-size:.91rem; line-height:1.55; }
 .mini-icon { display:inline-grid; place-items:center; width:38px; height:38px; border-radius:12px; background:#edf0ff; font-size:1.2rem; }
-.empty-state { border:1px dashed #ccd5e4; border-radius:16px; padding:1.3rem; color:var(--muted); background:#ffffffa6; }
 .empty-state { border:1px dashed #ccd5e4; border-radius:16px; padding:1.3rem; color:var(--muted); background:#ffffffa6; }
 .week-empty { min-height:230px;display:flex;align-items:center;gap:1.2rem;padding:1.5rem;border:1px solid var(--line);border-radius:18px;background:linear-gradient(135deg,#fff,#f4f6fa);box-shadow:0 8px 25px #1d2c4408; }
 .week-empty-copy strong { display:block;color:var(--ink);font-size:1.02rem;margin-bottom:.35rem; }
@@ -161,12 +159,6 @@ def password_digest(password: str, salt: str) -> str:
     return hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 310_000).hex()
 
 
-def create_account(username: str, password: str):
-    username = username.strip()
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username):
-        return None, "Kullanıcı adı 3–32 karakter olmalı; İngilizce harf, rakam, nokta, tire veya alt çizgi kullanın."
-    if len(password) < 10:
-        return None, "Parola en az 10 karakter olmalı."
 def create_account(username: str, password: str):
     username = username.strip()
     if not re.fullmatch(r"[A-Za-z0-9_.-]{3,10}", username):
@@ -627,12 +619,6 @@ def render_dashboard(user_id: int, username: str) -> None:
         dates = [(today - timedelta(days=i)).isoformat() for i in reversed(range(7))]
         focus_by_date = {d: sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == d) for d in dates}
         labels = {d: f"{['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][date.fromisoformat(d).weekday()]} {date.fromisoformat(d).day}" for d in dates}
-        try:
-            import pandas as pd
-            focus_frame = pd.DataFrame([{"Gün": labels[d], "Dakika": focus_by_date[d]} for d in dates])
-            st.bar_chart(focus_frame, x="Gün", y="Dakika", color="#3858d6", height=230)
-        except ImportError:
-            st.info("Grafik için pandas paketini yükleyin.")
         if sum(focus_by_date.values()) == 0:
             placeholder_bars = "".join(f"<i style='height:{height}px'></i>" for height in [34, 54, 42, 72, 48, 62, 38])
             st.markdown(
@@ -725,10 +711,6 @@ def render_login() -> None:
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0d!important;border:1px solid #ffffff1c; }}
     [data-testid="stTabs"] [data-baseweb="tab"] {{ color:#dbe4e8!important; }}
     [data-testid="stTabs"] [aria-selected="true"] {{ color:#142a30!important; }}
-    .auth-brand {{ display:flex;align-items:center;justify-content:center;gap:.65rem;color:#f5faf8;font-size:.84rem;font-weight:800;letter-spacing:.17em;margin-bottom:1.1rem;text-shadow:0 2px 15px #0008; }}
-    .auth-brand span {{ display:grid;place-items:center;width:37px;height:37px;border-radius:13px;background:#e7f4ee;color:#1a3b35;font-size:1.1rem;letter-spacing:0; }}
-    .auth-title {{ color:#f8faf9;font-size:1.72rem;font-weight:760;letter-spacing:-.035em;text-align:center;margin:.2rem 0 .4rem; }}
-    .auth-copy {{ color:#cbd7d9;text-align:center;font-size:.92rem;margin:0 0 1.35rem; }}
     .auth-brand {{ display:flex;align-items:center;justify-content:center;gap:.7rem;color:#fff8ee;font-size:.82rem;font-weight:850;letter-spacing:.17em;margin:.25rem 0 1rem;text-shadow:0 2px 15px #0008; }}
     .auth-brand span {{ display:grid;place-items:center;width:42px;height:42px;border-radius:15px;background:linear-gradient(145deg,#ffe39a,#ff9d50 48%,#dd4338);color:#381d1c;font-size:1.15rem;letter-spacing:0;box-shadow:0 0 28px #f1754666,inset 0 1px 0 #fff9; }}
     .auth-title {{ color:#fffaf5;font-size:clamp(1.7rem,4vw,2.15rem);font-weight:820;letter-spacing:-.045em;text-align:center;margin:.25rem 0 .45rem;text-shadow:0 3px 28px #ff684233; }}
@@ -742,20 +724,22 @@ def render_login() -> None:
     [data-testid="stForm"] button:disabled {{ opacity:1!important;color:#512b22!important;filter:saturate(.78); }}
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0c!important;border:1px solid #ffffff1d;padding:5px!important; }}
     [data-testid="stTabs"] [data-baseweb="tab"] {{ border-radius:11px!important; }}
+    [data-testid="stRadio"] [role="radiogroup"] {{ display:grid!important;grid-template-columns:1fr 1fr;gap:5px!important;padding:5px!important;border:1px solid #ffffff22;border-radius:14px;background:#ffffff0d; }}
+    [data-testid="stRadio"] [role="radiogroup"] label {{ display:flex!important;justify-content:center;align-items:center;min-height:38px;margin:0!important;padding:.45rem .65rem!important;border-radius:10px!important;color:#d6dce3!important;font-weight:650!important; }}
+    [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {{ color:#36201d!important;background:linear-gradient(100deg,#f3d18a,#fa9c5b)!important;box-shadow:0 4px 14px #e1513d2a; }}
+    [data-testid="stRadio"] [role="radiogroup"] label p {{ color:inherit!important; }}
     @media(max-width:600px) {{ [data-testid="stMainBlockContainer"]{{padding:3vh 1rem!important}} [data-testid="stVerticalBlockBorderWrapper"]{{padding:1.2rem!important;border-radius:20px}} }}
     {auth_theme_css}
     </style>''', unsafe_allow_html=True)
     st.markdown('<div class="auth-brand"><span>J</span> JARVIS · YKS STUDIO</div>', unsafe_allow_html=True)
     with st.container(border=True):
-        st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">Kişisel çalışma alanına giriş yap veya hesabını oluştur.</div>', unsafe_allow_html=True)
         st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">YKS yolculuğunu planla, ilerlemeni takip et ve her gün küçük bir adım daha at.</div><div class="auth-feature-strip"><span>✦ Kişisel çalışma planı</span><span>◷ Günlük odak takibi</span><span>⌁ Güvenli hafıza</span></div>', unsafe_allow_html=True)
-        login_tab, register_tab = st.tabs(["Giriş yap", "Hesap oluştur"])
-        with login_tab:
+        auth_mode = st.radio("Hesap işlemi", ["Giriş yap", "Hesap oluştur"], horizontal=True,
+                             label_visibility="collapsed", key="auth_mode")
+        if auth_mode == "Giriş yap":
             with st.form("login_form"):
-                username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi")
-                password = st.text_input("Parola", type="password", placeholder="Parolan")
-                username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi", max_chars=32)
-                password = st.text_input("Parola", type="password", placeholder="Parolan", max_chars=128)
+                username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi", max_chars=32, key="login_username")
+                password = st.text_input("Parola", type="password", placeholder="Parolan", max_chars=128, key="login_password")
                 login = st.form_submit_button("Giriş yap  →", use_container_width=True)
             if login:
                 user_id = authenticate(username, password)
@@ -765,14 +749,11 @@ def render_login() -> None:
                     st.session_state.user_id = user_id
                     st.session_state.username = username.strip()
                     st.rerun()
-        with register_tab:
+        else:
             with st.form("register_form"):
-                new_username = st.text_input("Kullanıcı adı", placeholder="3–32 karakter", key="register_username")
-                new_password = st.text_input("Parola", type="password", placeholder="En az 10 karakter", key="register_password")
-                confirm_password = st.text_input("Parolayı tekrar yaz", type="password", placeholder="Parola onayı")
                 new_username = st.text_input("Kullanıcı adı", placeholder="3–10 karakter", max_chars=10, key="register_username")
                 new_password = st.text_input("4 rakamlı parola", type="password", placeholder="Örn. 0427", max_chars=4, key="register_password", help="Tam 4 rakam girin. Başında sıfır olabilir.")
-                confirm_password = st.text_input("Parolayı tekrar yaz", type="password", placeholder="4 rakamı tekrar girin", max_chars=4)
+                confirm_password = st.text_input("Parolayı tekrar yaz", type="password", placeholder="4 rakamı tekrar girin", max_chars=4, key="register_password_confirm")
                 register = st.form_submit_button("Hesap oluştur  →", use_container_width=True)
             if register:
                 if new_password != confirm_password:
@@ -810,7 +791,6 @@ def main():
     if theme_mode == "Koyu":
         theme_css = """
         :root { --ink:#f1f3f6; --muted:#aeb7c5; --brand:#ff5148; --mint:#ffb24c; --gold:#ffd36e; --line:#333a46; --paper:#11151c; }
-        html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a18,transparent 24%),repeating-linear-gradient(135deg,#ffffff04 0 1px,transparent 1px 22px)!important; background-attachment:fixed!important; }
         html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a12,transparent 24%),linear-gradient(145deg,#10141b,#17191f 56%,#12151c)!important; background-attachment:fixed!important; }
         [data-testid="stAppViewContainer"] .main { color:#f1f3f6!important; }
         h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
@@ -840,7 +820,6 @@ def main():
     else:
         theme_css = """
         :root { --ink:#202b3b; --muted:#687486; --brand:#b63e32; --mint:#397c70; --gold:#aa671e; --line:#e5ddd7; --paper:#f7f5f2; }
-        html,body,[data-testid="stAppViewContainer"] { background-color:#f7f5f2!important; background-image:radial-gradient(ellipse at 82% 7%,#e9513512,transparent 33%),radial-gradient(ellipse at 91% 12%,#ffbf5919,transparent 23%),repeating-linear-gradient(135deg,#6a3d2a05 0 1px,transparent 1px 24px)!important; background-attachment:fixed!important; }
         html,body,[data-testid="stAppViewContainer"] { background-color:#f7f5f2!important; background-image:radial-gradient(ellipse at 82% 7%,#e9513512,transparent 33%),radial-gradient(ellipse at 91% 12%,#ffbf5912,transparent 23%),linear-gradient(145deg,#f8f6f3,#f2f0ee)!important; background-attachment:fixed!important; }
         [data-testid="stSidebar"] { background:linear-gradient(165deg,#292326,#171b22 70%,#202023)!important;border-right:1px solid #513331!important; }
         .side-mark { background:linear-gradient(135deg,#ffbd5b,#f26748)!important;color:#351d1b!important; }
@@ -860,7 +839,6 @@ def main():
     [data-testid="stAppViewContainer"]::before { content:"";position:fixed;z-index:0;pointer-events:none;right:-105px;top:115px;width:240px;height:240px;border-radius:50%;opacity:.16;background:radial-gradient(circle,#fff7dc 0 5%,#ffc45b 6% 9%,#e34636 10% 13%,transparent 14% 28%,#e3463655 29% 30%,transparent 31%);box-shadow:0 0 60px #f15b3340; }
     @media(max-width:760px) { [data-testid="stAppViewContainer"]::before { width:130px;height:130px;right:-65px;top:80px;opacity:.11; } }
     </style>""", unsafe_allow_html=True)
-    st.title("JARVIS · YKS Çalışma Stüdyosu")
     st.title("YKS ÇALIŞMA STÜDYOSU")
     st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
 
