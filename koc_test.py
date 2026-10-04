@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import ast
-import asyncio
 from contextlib import contextmanager
 import ipaddress
 import io
@@ -19,23 +18,22 @@ import socket
 import sqlite3
 import uuid
 import hmac
+from html.parser import HTMLParser
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 import streamlit as st
-from bs4 import BeautifulSoup
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    BeautifulSoup = None
 
 try:
     from google import genai
 except ImportError:
     genai = None
-
-try:
-    import edge_tts
-except ImportError:
-    edge_tts = None
 
 try:
     from PIL import Image
@@ -351,38 +349,6 @@ if hasattr(st, "fragment"):
     render_reminders = st.fragment(run_every="30s")(render_reminders)
 
 
-def speak_text(text: str, speed: float = 1.0):
-    """Edge-TTS sesini Streamlit oynatıcısına hazır MP3 verisi olarak döndürür."""
-    if edge_tts is None:
-        raise RuntimeError("Sesli yanıt için edge-tts paketi gerekli: pip install edge-tts")
-
-    async def synthesize():
-        audio = bytearray()
-        rate = f"{int((speed - 1.0) * 100):+d}%"
-        async for chunk in edge_tts.Communicate(text=text[:2500], voice="tr-TR-AhmetNeural", rate=rate).stream():
-            if chunk["type"] == "audio":
-                audio.extend(chunk["data"])
-        return bytes(audio)
-
-    return asyncio.run(synthesize())
-
-
-def transcribe_audio(audio_file) -> str:
-    """Tarayıcı mikrofon kaydını Gemini ile Türkçe metne çevirir."""
-    from google.genai import types
-    raw = audio_file.getvalue()
-    mime = getattr(audio_file, "type", None) or "audio/wav"
-    response = get_model().models.generate_content(
-        model="gemini-2.5-flash",
-        contents=["Bu Türkçe ses kaydını aynen yazıya aktar. Yalnızca duyulan metni döndür.",
-                  types.Part.from_bytes(data=raw, mime_type=mime)],
-    )
-    text = getattr(response, "text", None)
-    if not text:
-        raise RuntimeError("Ses kaydı çözümlenemedi.")
-    return text.strip()
-
-
 def scrape_link(url: str, max_chars: int = 6000):
     """HTTP(S) sayfasının metnini alır; özel ağ adreslerini ve yönlendirmeleri reddeder."""
     url = url.strip()
@@ -426,15 +392,64 @@ def scrape_link(url: str, max_chars: int = 6000):
             return None, "Bu bağlantı HTML/metin sayfası değil; okunamadı."
     except requests.RequestException as exc:
         return None, f"Link okunamadı: {exc}"
-    soup = BeautifulSoup(response.text, "html.parser")
-    title = soup.title.get_text(" ", strip=True) if soup.title else "Başlık bulunamadı"
-    for tag in soup(["script", "style", "nav", "footer", "header", "noscript", "svg"]):
-        tag.decompose()
-    lines = [line.strip() for line in soup.get_text("\n").splitlines() if line.strip()]
+    if BeautifulSoup is not None:
+        soup = BeautifulSoup(response.text, "html.parser")
+        title = soup.title.get_text(" ", strip=True) if soup.title else "Başlık bulunamadı"
+        for tag in soup(["script", "style", "nav", "footer", "header", "noscript", "svg"]):
+            tag.decompose()
+        page_text = soup.get_text("\n")
+    else:
+        parser = _PageTextExtractor()
+        parser.feed(response.text)
+        title = " ".join(parser.title_parts).strip() or "Başlık bulunamadı"
+        page_text = "\n".join(parser.text_parts)
+    lines = [line.strip() for line in page_text.splitlines() if line.strip()]
     content = "\n".join(lines)[:max_chars]
     if not content:
         return None, "Sayfadan okunabilir metin çıkarılamadı."
     return {"title": title, "content": content}, None
+
+
+class _PageTextExtractor(HTMLParser):
+    """BeautifulSoup yoksa standart kütüphane ile temel HTML metni çıkarımı."""
+    OMIT_TAGS = {"script", "style", "nav", "footer", "header", "noscript", "svg"}
+    BLOCK_TAGS = {"p", "div", "br", "li", "tr", "h1", "h2", "h3", "h4", "section"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.omit_depth = 0
+        self.in_title = False
+        self.title_parts = []
+        self.text_parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if self.omit_depth:
+            self.omit_depth += 1
+            return
+        if tag in self.OMIT_TAGS:
+            self.omit_depth = 1
+            return
+        if tag == "title":
+            self.in_title = True
+        if tag in self.BLOCK_TAGS:
+            self.text_parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if self.omit_depth:
+            self.omit_depth -= 1
+            return
+        if tag == "title":
+            self.in_title = False
+        if tag in self.BLOCK_TAGS:
+            self.text_parts.append("\n")
+
+    def handle_data(self, data):
+        if self.omit_depth or not data.strip():
+            return
+        text = data.strip()
+        if self.in_title:
+            self.title_parts.append(text)
+        self.text_parts.append(text)
 
 
 def summarize_resource(title: str, content: str) -> str:
@@ -869,26 +884,7 @@ def main():
     for message in messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
-    voice_input = None
-    voice_speed = st.slider("Ses hızı", min_value=0.75, max_value=1.25, value=1.0, step=0.05, key="tts_speed")
-    if hasattr(st, "audio_input"):
-        recorded_audio = st.audio_input("🎙️ İstersen mesajını konuşarak kaydet")
-        if recorded_audio:
-            st.audio(recorded_audio, format="audio/wav")
-        if recorded_audio and st.button("Kaydı yazıya çevir", key="transcribe_jarvis_audio"):
-            try:
-                with st.spinner("Ses çözümleniyor..."):
-                    transcript = transcribe_audio(recorded_audio)
-                st.session_state.jarvis_transcript = transcript
-            except Exception as exc:
-                st.error(f"Ses çözümlenemedi: {exc}")
-        if st.session_state.get("jarvis_transcript"):
-            st.session_state.jarvis_transcript = st.text_area("Göndermeden önce metni düzenleyin", value=st.session_state.jarvis_transcript,
-                                                              key="editable_voice_transcript")
-            if st.button("Bu mesajı gönder", key="send_voice_message"):
-                voice_input = st.session_state.jarvis_transcript
-                st.session_state.jarvis_transcript = ""
-    user_input = voice_input or st.chat_input("Koçuna bir şey sor...")
+    user_input = st.chat_input("Mesajını yaz ve Enter'a bas...")
     if user_input:
         messages.append({"role": "user", "content": user_input})
         if active_chat["title"] == "Yeni sohbet":
@@ -931,16 +927,6 @@ def main():
             st.markdown(answer)
         messages.append({"role": "assistant", "content": answer})
         write_user_json(user_id, "chats", chats)
-
-    if messages:
-        if st.button("🔊 Son yanıtı seslendir", key="speak_last_answer"):
-            try:
-                with st.spinner("Ses hazırlanıyor..."):
-                    audio_bytes = speak_text(messages[-1]["content"], speed=voice_speed)
-                st.audio(audio_bytes, format="audio/mp3")
-            except Exception as exc:
-                st.error(f"Sesli yanıt oluşturulamadı: {exc}")
-
 
 if __name__ == "__main__":
     main()
