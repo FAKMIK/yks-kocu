@@ -814,6 +814,11 @@ def render_world_panel() -> None:
         st.link_button("🔎 Daha fazla teknoloji haberi", "https://news.google.com/topstories?hl=tr&gl=TR&ceid=TR:tr", use_container_width=True)
 
 
+def navigate_to_view(view: str) -> None:
+    """Switch the sidebar page from a dashboard shortcut before rerun."""
+    st.session_state["active_view"] = view
+
+
 def render_dashboard(user_id: int, username: str) -> None:
     tasks = read_user_json(user_id, "study_tasks", [])
     focus_logs = read_user_json(user_id, "study_sessions", [])
@@ -903,6 +908,15 @@ def render_dashboard(user_id: int, username: str) -> None:
     streak_col, badge_col = st.columns([1, 3])
     streak_col.metric("🔥 Çalışma serisi", f"{study_streak} gün")
     badge_col.markdown(f"<div class='soft-card' style='padding:.85rem 1rem'><span class='section-kicker'>GELİŞİM ROZETİ</span><p style='margin-top:.3rem'>🏅 {streak_badge} · Her gün kısa bir oturum bile serini sürdürür.</p></div>", unsafe_allow_html=True)
+
+    st.markdown("<div class='section-kicker' style='margin-top:1.2rem'>HIZLI ERİŞİM</div><h3 class='quick-access-title'>Bugün ne yapmak istersin?</h3>", unsafe_allow_html=True)
+    shortcuts = st.columns(4)
+    shortcut_items = [("🎯", "Odak seansı", "🎯 Odak Modu"), ("▶", "TYT kampı", "🎬 TYT Video Kampları"),
+                      ("🎓", "Sınav hedefi", "🎓 Sınav Planlayıcı"), ("🌌", "Dünya paneli", "🌐 Dünya Paneli")]
+    for shortcut_col, (icon, label, destination) in zip(shortcuts, shortcut_items):
+        with shortcut_col:
+            st.button(f"{icon}  {label}  →", key=f"shortcut_{destination}", use_container_width=True,
+                      on_click=navigate_to_view, args=(destination,))
 
     left, right = st.columns([1.45, 1], gap="large")
     with left:
@@ -1322,21 +1336,40 @@ def main():
     [data-testid="stSidebar"] [data-testid="stRadio"] label { border-radius:12px!important;margin:2px 0!important;padding:.7rem .8rem!important;transition:all .18s ease!important; }
     [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background:linear-gradient(100deg,#a946c14a,#db455644)!important;box-shadow:inset 3px 0 #ef7a82,0 8px 22px #1009154d;color:#fff!important; }
     .hero-card { min-height:295px!important;padding:2.2rem 2.5rem!important;border:1px solid #e98ab13d!important;background:radial-gradient(ellipse at 83% 52%,#c445b944,transparent 34%),linear-gradient(112deg,#211427 0%,#421c35 47%,#832d3b 79%,#4b224f 100%)!important;box-shadow:0 22px 65px #35142c52, inset 0 1px 0 #ffffff12!important; }
-    .hero-card:after { width:370px!important;height:370px!important;right:4%!important;top:-44px!important;background:radial-gradient(circle,#ffc17a1c 0 1%,#ee66831c 34%,#aa4bce16 61%,transparent 71%)!important;filter:blur(1px); }
+    .hero-card { background:radial-gradient(ellipse at 84% 47%,#8b3fbd42,transparent 34%),radial-gradient(ellipse at 65% 100%,#de3a552a,transparent 42%),linear-gradient(112deg,#100e17 0%,#1d1425 40%,#30182f 73%,#191323 100%)!important; }
+    .hero-card:after { width:410px!important;height:410px!important;right:3%!important;top:-62px!important;background:radial-gradient(circle,#b458e92e 0 18%,#e7526530 42%,#8f45bc1a 58%,transparent 71%)!important;filter:blur(2px); }
     .hero-card h1 { text-shadow:0 4px 36px #ff73762b; }.hero-card p { color:#e3d3e5!important; }.hero-eyebrow { color:#ffc880!important; }
     .hero-pill { background:#ffffff0d!important;border-color:#ffffff28!important;backdrop-filter:blur(10px); }
     .phoenix-hero { width:min(37%,350px)!important;min-width:220px!important;filter:drop-shadow(0 0 24px #e45b8a77);animation:phoenix-drift 7s ease-in-out infinite; }
     @keyframes phoenix-drift { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
     .section-kicker { color:#c65370!important; }.soft-card { border-radius:19px!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important; }
-    .soft-card:hover { transform:translateY(-2px);box-shadow:0 14px 32px #67274414!important;border-color:#d99acb!important; }
-    [data-testid="stMetric"] { border-radius:18px!important;box-shadow:0 8px 24px #4c1b3310!important; }
+    .soft-card { position:relative;overflow:hidden;border-color:var(--line)!important;box-shadow:0 10px 30px #08050e14,inset 0 1px 0 #ffffff08!important; }
+    .soft-card:before { content:"";position:absolute;left:0;top:0;width:34%;height:1px;background:linear-gradient(90deg,#b65be6,#ed5367,transparent);opacity:.65; }
+    .soft-card:hover { transform:translateY(-2px);box-shadow:0 16px 38px #09050f55!important;border-color:#87529d!important; }
+    [data-testid="stMetric"] { border-radius:18px!important;box-shadow:0 9px 28px #0a071222!important;transition:transform .18s ease,border-color .18s ease; }
+    [data-testid="stMetric"]:hover { transform:translateY(-2px);border-color:#a34bbf!important; }
+    .quick-access-title { margin:.1rem 0 .7rem!important;font-size:1.08rem!important;font-weight:720!important;letter-spacing:-.015em!important; }
+    [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h1 { font-size:clamp(1.8rem,3vw,2.4rem)!important;letter-spacing:-.045em!important; }
+    [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h2 { font-size:1.5rem!important;letter-spacing:-.03em!important; }
+    [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h2:after { content:"";display:block;width:40px;height:3px;margin-top:.45rem;border-radius:99px;background:linear-gradient(90deg,#ad4bc8,#e34a5b); }
+    [data-testid="stDataFrame"] { border:1px solid var(--line);border-radius:15px;overflow:hidden; }
+    [data-testid="stPlotlyChart"],[data-testid="stVegaLiteChart"],[data-testid="stArrowVegaLiteChart"] { border-radius:17px; }
+    [data-testid="stAlert"] { border-radius:14px!important; }
+    .stTextInput input:focus,.stTextArea textarea:focus,.stDateInput input:focus,.stNumberInput input:focus { border-color:#b866cf!important;box-shadow:0 0 0 2px #a34bbf35!important; }
+    [data-testid="stSidebar"] [data-testid="stMetric"] { background:linear-gradient(140deg,#211629,#19131f)!important;border-color:#ffffff12!important; }
+    [data-testid="stSidebar"] .stButton button,[data-testid="stSidebar"] .stDownloadButton button { background:#ffffff0d!important;border:1px solid #ffffff20!important;box-shadow:none!important;color:#f2eafa!important; }
+    [data-testid="stSidebar"] .stButton button:hover,[data-testid="stSidebar"] .stDownloadButton button:hover { background:#9e4bb42e!important;border-color:#bd71c8!important; }
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"]>div { background:#1b1422!important;border-color:#4d3658!important;color:#f4eefa!important; }
+    .stToggle [data-baseweb="switch"] div[role="switch"] { background:#61416e; }
+    a { color:#d98be8; }
+    .stLinkButton a { border-radius:12px!important; }
     .stButton button,.stDownloadButton button { border-radius:12px!important;background:linear-gradient(105deg,#a245c4,#d54362 68%,#ed7549)!important;color:#fff!important;border:0!important;box-shadow:0 7px 22px #9c356f2c!important; }
     .stButton button:hover,.stDownloadButton button:hover { filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 11px 30px #9c356f45!important; }
     [data-testid="stProgressBar"] > div > div { background:linear-gradient(90deg,#a34bc7,#d84467,#f07c4c)!important; }
     .study-heatmap { border-radius:18px!important; }.calendar-day { border-radius:16px!important; }
     [data-testid="stMainBlockContainer"] { max-width:1460px!important; }
     @media(prefers-reduced-motion:reduce) { .phoenix-hero { animation:none!important; } }
-    @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.phoenix-hero { min-width:112px!important;width:30%!important; } }
+    @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.phoenix-hero { min-width:112px!important;width:30%!important; }.quick-access-title { font-size:1rem!important; }.study-heatmap { gap:4px;padding:.65rem; } }
     </style>""", unsafe_allow_html=True)
     st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'><span class='app-masthead-mark'>{phoenix_mark_svg(22)}</span> ANKA · YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
 
