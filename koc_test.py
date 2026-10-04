@@ -275,7 +275,7 @@ def restore_account_backup(user_id: int, uploaded_file) -> tuple[bool, str]:
                     if 1 <= event["minutes"] <= 600 and not any(item.get("id") == event.get("id") for item in sessions if isinstance(item, dict)):
                         sessions.append({"id": str(event.get("id") or uuid.uuid4().hex[:10]), "date": str(event.get("date", date.today().isoformat())),
                                          "minutes": event["minutes"], "subject": str(event.get("subject", "Diğer"))[:40], "note": "Çevrimdışı yardımcı"})
-                        award_xp(user_id, f"session:{sessions[-1]['id']}", max(5, event["minutes"] // 5), "Çevrimdışı çalışma")
+                        award_xp(user_id, f"session:{sessions[-1]['id']}", max(1, event["minutes"] // 5), "Çevrimdışı çalışma")
                         applied += 1
             write_user_json(user_id, "study_tasks", tasks)
             write_user_json(user_id, "notes", notes)
@@ -489,7 +489,7 @@ def offline_kit_html(user_id: int) -> str:
 <section class="card"><h2>Bugünkü plan</h2><ul id="tasks"></ul></section><section class="card"><h2>Yanlış soru tekrarların</h2><ul id="questions"></ul></section>
 <section class="card"><h2>Çevrimdışı not</h2><textarea id="note" rows="3" placeholder="Notunu yaz..."></textarea><button onclick="saveNote()">Notu kaydet</button><ul id="notes"></ul></section>
 <section class="card"><h2>Siteyle eşitle</h2><p class="muted">İnternet gelince değişiklik dosyasını indirip ANKA’daki “Yedekten geri yükle” alanına aktar. Eşitleme yalnızca bu dosyayı seçtiğinde yapılır.</p><button onclick="exportChanges()">Değişiklikleri JSON indir</button> <label><input type="file" id="importFile" accept="application/json" onchange="importChanges(event)">Değişiklik JSON’unu içe al</label></section></main>
-<script>const SEED=__SEED__;const STORE='anka_offline_v1';let state=JSON.parse(localStorage.getItem(STORE)||'null')||{tasks:SEED.tasks,questions:SEED.questions,notes:SEED.notes,changes:[]};function save(){localStorage.setItem(STORE,JSON.stringify(state))}function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}function render(){const t=document.getElementById('tasks');t.replaceChildren();state.tasks.filter(x=>x.date===new Date().toISOString().slice(0,10)).forEach(x=>{const li=el('li','');const c=document.createElement('input');c.type='checkbox';c.checked=!!x.done;c.onchange=()=>{x.done=c.checked;state.changes.push({type:'task_done',task_id:x.id,done:x.done});save()};li.append(c,document.createTextNode(' '+[x.subject,x.topic,x.target].filter(Boolean).join(' · ')));t.append(li)});const q=document.getElementById('questions');q.replaceChildren();state.questions.filter(x=>!x.mastered).forEach(x=>q.append(el('li',[x.subject,x.topic,'Tekrar: '+(x.next_review||'belirlenmedi')].filter(Boolean).join(' · '))));const n=document.getElementById('notes');n.replaceChildren();state.notes.slice(-20).reverse().forEach(x=>n.append(el('li',typeof x==='string'?x:x.text||'')))}function saveNote(){const v=document.getElementById('note').value.trim();if(!v)return;const id=crypto.randomUUID();state.notes.push({id,text:v});state.changes.push({type:'note',id,text:v});document.getElementById('note').value='';save();render()}let left=1500,handle=null;function paint(){document.getElementById('clock').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')}function toggleTimer(){if(handle){clearInterval(handle);handle=null;document.getElementById('timerBtn').textContent='Devam et';return}document.getElementById('timerBtn').textContent='Duraklat';handle=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(handle);handle=null;state.changes.push({type:'study_session',id:crypto.randomUUID(),date:new Date().toISOString().slice(0,10),minutes:25,subject:document.getElementById('subject').value});save();document.getElementById('timerBtn').textContent='Seans tamamlandı'}},1000)}function resetTimer(){if(handle)clearInterval(handle);handle=null;left=1500;paint();document.getElementById('timerBtn').textContent='Başlat'}function exportChanges(){const data={format_version:1,offline_kit:true,changes:state.changes};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='anka-cevrimdisi-degisiklikler.json';a.click();URL.revokeObjectURL(a.href)}function importChanges(e){const f=e.target.files[0];if(!f)return;f.text().then(s=>{const d=JSON.parse(s);if(d.offline_kit&&Array.isArray(d.changes)){state.changes.push(...d.changes);save();alert('Değişiklikler içe alındı.');}}).catch(()=>alert('Dosya okunamadı.'))}render();paint();</script></html>'''
+<script>const SEED=__SEED__;const STORE='anka_offline_v1';function localDate(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}let state=JSON.parse(localStorage.getItem(STORE)||'null')||{tasks:SEED.tasks,questions:SEED.questions,notes:SEED.notes,changes:[]};function save(){localStorage.setItem(STORE,JSON.stringify(state))}function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}function render(){const t=document.getElementById('tasks');t.replaceChildren();state.tasks.filter(x=>x.date===localDate()).forEach(x=>{const li=el('li','');const c=document.createElement('input');c.type='checkbox';c.checked=!!x.done;c.onchange=()=>{x.done=c.checked;state.changes.push({type:'task_done',task_id:x.id,done:x.done});save()};li.append(c,document.createTextNode(' '+[x.subject,x.topic,x.target].filter(Boolean).join(' · ')));t.append(li)});const q=document.getElementById('questions');q.replaceChildren();state.questions.filter(x=>!x.mastered).forEach(x=>q.append(el('li',[x.subject,x.topic,'Tekrar: '+(x.next_review||'belirlenmedi')].filter(Boolean).join(' · '))));const n=document.getElementById('notes');n.replaceChildren();state.notes.slice(-20).reverse().forEach(x=>n.append(el('li',typeof x==='string'?x:x.text||'')))}function saveNote(){const v=document.getElementById('note').value.trim();if(!v)return;const id=crypto.randomUUID();state.notes.push({id,text:v});state.changes.push({type:'note',id,text:v});document.getElementById('note').value='';save();render()}let left=1500,handle=null;function paint(){document.getElementById('clock').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')}function toggleTimer(){if(handle){clearInterval(handle);handle=null;document.getElementById('timerBtn').textContent='Devam et';return}document.getElementById('timerBtn').textContent='Duraklat';handle=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(handle);handle=null;state.changes.push({type:'study_session',id:crypto.randomUUID(),date:localDate(),minutes:25,subject:document.getElementById('subject').value});save();document.getElementById('timerBtn').textContent='Seans tamamlandı'}},1000)}function resetTimer(){if(handle)clearInterval(handle);handle=null;left=1500;paint();document.getElementById('timerBtn').textContent='Başlat'}function exportChanges(){const data={format_version:1,offline_kit:true,changes:state.changes};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='anka-cevrimdisi-degisiklikler.json';a.click();URL.revokeObjectURL(a.href)}function importChanges(e){const f=e.target.files[0];if(!f)return;f.text().then(s=>{const d=JSON.parse(s);if(d.offline_kit&&Array.isArray(d.changes)){state.changes.push(...d.changes);save();alert('Değişiklikler içe alındı.');}}).catch(()=>alert('Dosya okunamadı.'))}render();paint();</script></html>'''
     return page.replace("const SEED=__SEED__;", f"const SEED={seed_json};")
 
 
@@ -523,9 +523,10 @@ def leaderboard_rows(current_user_id: int, friend_names: list[str]) -> list[dict
 
 
 def create_study_room(user_id: int, duration: int) -> str:
-    code = uuid.uuid4().hex[:6].upper()
+    code = uuid.uuid4().hex[:10].upper()
     now = time.time()
     with db_connect() as db:
+        db.execute("DELETE FROM study_rooms WHERE created_at<?", (now - 86400,))
         db.execute("INSERT INTO study_rooms(code,owner_id,duration_minutes,started_at,created_at) VALUES(?,?,?,NULL,?)",
                    (code, user_id, int(duration), now))
         db.execute("INSERT INTO study_room_members(room_code,user_id,joined_at) VALUES(?,?,?)", (code, user_id, now))
@@ -1031,7 +1032,7 @@ def render_shared_room(user_id: int, code: str) -> None:
             logs.append({"id": room_session_id, "date": date.today().isoformat(), "minutes": duration,
                          "subject": "Ortak odak", "note": f"Ortak oda {code}"})
             write_user_json(user_id, "study_sessions", logs)
-            award_xp(user_id, f"session:{room_session_id}", max(5, duration // 5), "Ortak odak seansı")
+            award_xp(user_id, f"session:{room_session_id}", max(1, duration // 5), "Ortak odak seansı")
         st.success("Ortak seans tamamlandı ve çalışma geçmişine eklendi.")
 
 
@@ -1107,7 +1108,7 @@ def render_anka_social(user_id: int, username: str) -> None:
             st.rerun()
     with room_right:
         with st.form("join_shared_room_form"):
-            room_code_input = st.text_input("Arkadaşının oda kodu", max_chars=6).upper()
+            room_code_input = st.text_input("Arkadaşının oda kodu", max_chars=10).upper()
             join_room = st.form_submit_button("Odaya katıl", use_container_width=True)
         if join_room:
             if join_study_room(user_id, room_code_input):
@@ -1186,8 +1187,9 @@ def render_dashboard(user_id: int, username: str) -> None:
     elif unfinished_today:
         task = unfinished_today[0]
         insight = f"Bugünkü önceliğin: {task.get('subject', 'Ders')} · {task.get('topic') or task.get('target') or 'planlı görev'}"
-    elif latest_exam and len(exam_results) >= 2:
-        prior_exam = sorted(exam_results, key=lambda item: item.get("date", ""))[-2]
+    elif latest_exam and len([item for item in exam_results if item.get("type", "TYT") == latest_exam.get("type", "TYT")]) >= 2:
+        same_type_history = sorted([item for item in exam_results if item.get("type", "TYT") == latest_exam.get("type", "TYT")], key=lambda item: item.get("date", ""))
+        prior_exam = same_type_history[-2]
         delta = float(latest_exam.get("Toplam", 0)) - float(prior_exam.get("Toplam", 0))
         insight = f"Son iki denemede toplam netin {'+' if delta >= 0 else ''}{delta:.2f} değişti. Bir sonraki adım için en düşük ders netine odaklan."
     else:
@@ -1220,13 +1222,14 @@ def render_dashboard(user_id: int, username: str) -> None:
         weather_col, close_col = st.columns([3, 1])
         with weather_col:
             with st.expander(f"🌦️ {bulletin_city} hava durumunu ekle"):
-                try:
-                    weather_data = fetch_weather(bulletin_city, *fetch_city_coordinates(bulletin_city))
-                    weather_now = weather_data["current"]
-                    st.metric(f"{bulletin_city} · şu an", f"{weather_now['temperature_2m']}°C",
-                              f"Hissedilen {weather_now['apparent_temperature']}°C · nem %{weather_now['relative_humidity_2m']}")
-                except Exception:
-                    st.caption("Hava bilgisi şu an alınamıyor; şehir seçimini Dünya Paneli'nden değiştirebilirsin.")
+                if st.button("Hava bilgisini getir", key="bulletin_fetch_weather"):
+                    try:
+                        weather_data = fetch_weather(bulletin_city, *fetch_city_coordinates(bulletin_city))
+                        weather_now = weather_data["current"]
+                        st.metric(f"{bulletin_city} · şu an", f"{weather_now['temperature_2m']}°C",
+                                  f"Hissedilen {weather_now['apparent_temperature']}°C · nem %{weather_now['relative_humidity_2m']}")
+                    except Exception:
+                        st.caption("Hava bilgisi şu an alınamıyor; şehir seçimini Dünya Paneli'nden değiştirebilirsin.")
         with close_col:
             if st.button("Bülteni kapat", key="dismiss_morning_bulletin", use_container_width=True):
                 write_user_json(user_id, "bulletin_seen_date", today.isoformat())
@@ -1237,7 +1240,8 @@ def render_dashboard(user_id: int, username: str) -> None:
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Bugünkü odak", today_focus_label, help="Kaydettiğin çalışma oturumlarının toplamı")
     k2.metric("Plan ilerlemesi", f"%{completion}", help=f"{done_count}/{task_count} görev tamamlandı")
-    k3.metric("Son deneme neti", latest_net, help=latest_exam.get("name", "Deneme") if latest_exam else "Henüz deneme sonucu eklenmedi")
+    k3.metric(f"Son {latest_exam.get('type', 'TYT')} neti" if latest_exam else "Son deneme neti", latest_net,
+              help=latest_exam.get("name", "Deneme") if latest_exam else "Henüz deneme sonucu eklenmedi")
     k4.metric("Kaynak arşivin", str(resource_count), help="PDF ve bağlantı kaynakları")
     extra_a, extra_b, extra_c, extra_d = st.columns(4)
     extra_a.metric("🎓 Sıradaki sınav", exam_countdown, help="Sınav tarihini Sınav Planlayıcı bölümünden ayarla")
@@ -1315,7 +1319,7 @@ def render_dashboard(user_id: int, username: str) -> None:
             focus_logs.append({"id": uuid.uuid4().hex[:10], "date": focus_day.isoformat(), "minutes": int(minutes),
                                "subject": subject, "note": note.strip()})
             write_user_json(user_id, "study_sessions", focus_logs)
-            award_xp(user_id, f"session:{focus_logs[-1]['id']}", max(5, int(minutes) // 5), "Çalışma oturumu")
+            award_xp(user_id, f"session:{focus_logs[-1]['id']}", max(1, int(minutes) // 5), "Çalışma oturumu")
             st.success("Çalışma oturumu kaydedildi.")
             st.rerun()
 
@@ -1421,7 +1425,7 @@ def render_focus_timer(user_id: int) -> None:
         logs.append({"id": uuid.uuid4().hex[:10], "date": date.today().isoformat(), "minutes": elapsed_minutes,
                      "subject": state.get("focus_timer_subject", "Ders"), "note": "Odak modu seansı"})
         write_user_json(user_id, "study_sessions", logs)
-        award_xp(user_id, f"session:{logs[-1]['id']}", max(5, elapsed_minutes // 5), "Odak seansı")
+        award_xp(user_id, f"session:{logs[-1]['id']}", max(1, elapsed_minutes // 5), "Odak seansı")
         state.focus_timer_deadline = None
         state.focus_timer_paused = False
         state.focus_timer_done = True
@@ -1437,7 +1441,7 @@ def render_focus_timer(user_id: int) -> None:
                      "minutes": int(state.get("focus_timer_duration", 25)),
                      "subject": state.get("focus_timer_subject", "Ders"), "note": "Odak modu tamamlandı"})
         write_user_json(user_id, "study_sessions", logs)
-        award_xp(user_id, f"session:{logs[-1]['id']}", max(5, int(state.get("focus_timer_duration", 25)) // 5), "Odak seansı tamamlandı")
+        award_xp(user_id, f"session:{logs[-1]['id']}", max(1, int(state.get("focus_timer_duration", 25)) // 5), "Odak seansı tamamlandı")
         state.focus_timer_deadline = None
         state.focus_timer_paused = False
         state.focus_timer_done = True
@@ -2130,7 +2134,12 @@ def main():
                         goal_col.metric("Durum", "Tarih geçti")
                     target = float(item.get("target_net", 0) or 0)
                     if target > 0 and exam_results_for_plan:
-                        latest_plan_net = max(exam_results_for_plan, key=lambda row: row.get("date", "")).get("Toplam", 0)
+                        expected_type = item.get("type", "").replace("YKS · ", "")
+                        matching_results = [row for row in exam_results_for_plan
+                                            if row.get("type", "TYT") == expected_type or
+                                            (expected_type == "AYT" and str(row.get("type", "")).startswith("AYT"))]
+                        comparable_results = matching_results or exam_results_for_plan
+                        latest_plan_net = max(comparable_results, key=lambda row: row.get("date", "")).get("Toplam", 0)
                         goal_col.caption(f"Son deneme {float(latest_plan_net):g} / {target:g} net")
                         st.progress(min(1.0, max(0.0, float(latest_plan_net) / target)), text="Son deneme / hedef net")
                     if del_col.button("Sil", key=f"delete_exam_goal_{item.get('id')}", use_container_width=True):
@@ -2209,6 +2218,9 @@ def main():
             chosen = st.selectbox("Görev listesine aktarılacak program", programs,
                                   format_func=lambda item: f"{item.get('title')} · {item.get('created_at')}",
                                   key="program_for_tasks")
+            existing_tasks = read_user_json(user_id, "study_tasks", [])
+            replace_existing = st.checkbox("Mevcut görevlerimi yeni programla değiştir", value=False,
+                                           key="replace_existing_tasks", help="Kapalıysa yeni görevler mevcut planın sonuna eklenir.")
             if st.button("Programı haftalık görevlere dönüştür", key="make_tasks"):
                 try:
                     structured = generate_structured_plan(chosen["content"])
@@ -2228,8 +2240,19 @@ def main():
                     if not tasks:
                         st.warning("Programdan görev çıkarılamadı.")
                     else:
-                        write_user_json(user_id, "study_tasks", tasks)
-                        st.success(f"{len(tasks)} görev oluşturuldu.")
+                        if replace_existing:
+                            final_tasks = tasks
+                        else:
+                            existing_keys = {(item.get("date"), item.get("subject"), item.get("topic"), item.get("target")) for item in existing_tasks}
+                            final_tasks = list(existing_tasks)
+                            for item in tasks:
+                                task_key = (item.get("date"), item.get("subject"), item.get("topic"), item.get("target"))
+                                if task_key not in existing_keys:
+                                    final_tasks.append(item)
+                                    existing_keys.add(task_key)
+                        added_count = len(final_tasks) if replace_existing else len(final_tasks) - len(existing_tasks)
+                        write_user_json(user_id, "study_tasks", final_tasks)
+                        st.success(f"{added_count} yeni görev eklendi." if not replace_existing else f"Görev planı {len(tasks)} görevle yenilendi.")
                         st.rerun()
                 except Exception as exc:
                     st.error(f"Program görevlere dönüştürülemedi: {exc}")
@@ -2259,12 +2282,22 @@ def main():
             if overdue_tasks:
                 st.warning(f"{len(overdue_tasks)} tamamlanmamış görev geçmiş tarihte kaldı.")
                 if st.button("🗓️ Gecikenleri hafifçe plana dağıt", key="reschedule_overdue"):
-                    for index, task in enumerate(overdue_tasks):
-                        task_day = date.today() + timedelta(days=index // 3)
+                    day_loads = {}
+                    for existing in tasks:
+                        if not existing.get("done") and existing.get("date", "") >= date.today().isoformat():
+                            day_loads[existing["date"]] = day_loads.get(existing["date"], 0) + 1
+                    next_day = date.today()
+                    weekdays = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+                    for task in overdue_tasks:
+                        while day_loads.get(next_day.isoformat(), 0) >= 3:
+                            next_day += timedelta(days=1)
+                        task_day = next_day
                         task["date"] = task_day.isoformat()
-                        task["day"] = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][task_day.weekday()]
+                        task["day"] = weekdays[task_day.weekday()]
+                        day_loads[task_day.isoformat()] = day_loads.get(task_day.isoformat(), 0) + 1
+                        next_day = task_day
                     write_user_json(user_id, "study_tasks", tasks)
-                    st.success("Geciken görevler günde en fazla üç görev olacak şekilde yeniden planlandı.")
+                    st.success("Geciken görevler, mevcut plana göre günde en fazla üç açık görev olacak biçimde dağıtıldı.")
                     st.rerun()
             today_tasks = [task for task in tasks if task.get("date") == date.today().isoformat()]
             st.markdown("**Bugünün görevleri**")
@@ -2296,20 +2329,30 @@ def main():
 
         st.divider()
         st.markdown("**Deneme sonuçları**")
+        exam_maxima = {
+            "TYT": {"Türkçe": 40, "Matematik": 40, "Sosyal": 20, "Fen": 20},
+            "AYT Sayısal": {"Matematik": 40, "Fizik": 14, "Kimya": 13, "Biyoloji": 13},
+            "AYT Eşit Ağırlık": {"Matematik": 40, "Türk Dili ve Edebiyatı": 24, "Tarih-1": 10, "Coğrafya-1": 6},
+            "AYT Sözel": {"Türk Dili ve Edebiyatı": 24, "Tarih-1": 10, "Coğrafya-1": 6, "Tarih-2": 11, "Coğrafya-2": 11, "Felsefe Grubu": 12, "Din Kültürü": 6},
+            "YDT": {"Yabancı Dil": 80},
+        }
+        selected_exam_type = st.selectbox("Deneme türü", list(exam_maxima), key="result_exam_type")
+        selected_maxima = exam_maxima[selected_exam_type]
         with st.form("exam_result_form"):
             exam_date = st.date_input("Deneme tarihi", value=date.today())
-            exam_label = st.text_input("Deneme adı", placeholder="TYT denemesi")
-            a, b, c, d = st.columns(4)
-            net_turkish = a.number_input("Türkçe neti", min_value=0.0, max_value=40.0, step=0.25)
-            net_math = b.number_input("Matematik neti", min_value=0.0, max_value=40.0, step=0.25)
-            net_social = c.number_input("Sosyal neti", min_value=0.0, max_value=20.0, step=0.25)
-            net_science = d.number_input("Fen neti", min_value=0.0, max_value=20.0, step=0.25)
+            exam_label = st.text_input("Deneme adı", placeholder=f"{selected_exam_type} denemesi")
+            exam_subject_nets = {}
+            net_cols = st.columns(min(4, len(selected_maxima)))
+            for subject_index, (subject_name, maximum) in enumerate(selected_maxima.items()):
+                exam_subject_nets[subject_name] = net_cols[subject_index % len(net_cols)].number_input(
+                    f"{subject_name} neti · /{maximum}", min_value=0.0, max_value=float(maximum), step=0.25,
+                    key=f"exam_net_{selected_exam_type}_{subject_name}")
             add_exam = st.form_submit_button("Denemeyi kaydet")
         if add_exam:
             results = read_user_json(user_id, "exam_results", [])
-            results.append({"id": uuid.uuid4().hex[:10], "date": exam_date.isoformat(), "name": exam_label.strip() or "Deneme",
-                            "Türkçe": net_turkish, "Matematik": net_math, "Sosyal": net_social, "Fen": net_science,
-                            "Toplam": net_turkish + net_math + net_social + net_science})
+            results.append({"id": uuid.uuid4().hex[:10], "date": exam_date.isoformat(), "name": exam_label.strip() or f"{selected_exam_type} denemesi",
+                            "type": selected_exam_type, "subject_max": selected_maxima, **exam_subject_nets,
+                            "Toplam": sum(exam_subject_nets.values())})
             award_xp(user_id, f"exam:{results[-1]['id']}", 10, "Deneme analizi")
             write_user_json(user_id, "exam_results", results)
             st.success("Deneme sonucu kaydedildi.")
@@ -2325,7 +2368,7 @@ def main():
                                               format_func=lambda item: f"{item.get('date', '')} · {item.get('name', 'Deneme')}",
                                               key="topic_result_exam")
                     topic_entry_cols = st.columns(4)
-                    topic_subject = topic_entry_cols[0].selectbox("Ders", ["Matematik", "Fizik", "Kimya", "Biyoloji", "Türkçe", "Tarih", "Coğrafya", "Felsefe", "Geometri"])
+                    topic_subject = topic_entry_cols[0].selectbox("Ders", ["Matematik", "Geometri", "Fizik", "Kimya", "Biyoloji", "Türkçe", "Türk Dili ve Edebiyatı", "Tarih", "Tarih-1", "Tarih-2", "Coğrafya", "Coğrafya-1", "Coğrafya-2", "Felsefe", "Felsefe Grubu", "Din Kültürü", "Yabancı Dil"])
                     topic_entry = topic_entry_cols[1].text_input("Konu", placeholder="Dalgalar")
                     attempted = topic_entry_cols[2].number_input("Çözülen", min_value=1, max_value=100, value=10)
                     correct = topic_entry_cols[3].number_input("Doğru", min_value=0, max_value=100, value=5)
@@ -2355,6 +2398,7 @@ def main():
                         agg["doğru"] += int(item.get("correct", 0))
                         agg["soru"] += int(item.get("attempted", 0))
                     perf_frame = pd.DataFrame([{"Ders": subject, "Konu": topic, "Doğru": vals["doğru"],
+                                                "Yanlış": max(0, vals["soru"] - vals["doğru"]),
                                                 "Soru": vals["soru"], "Başarı (%)": round(100 * vals["doğru"] / max(1, vals["soru"]))}
                                                for (subject, topic), vals in topic_performance.items()])
                     st.dataframe(perf_frame.sort_values(["Başarı (%)", "Soru"]), use_container_width=True, hide_index=True)
@@ -2380,26 +2424,31 @@ def main():
                 import pandas as pd
                 ordered_results = sorted(results, key=lambda item: item.get("date", ""))
                 latest = ordered_results[-1]
-                sections = [("Türkçe", 40), ("Matematik", 40), ("Sosyal", 20), ("Fen", 20)]
-                weakest = min(sections, key=lambda item: float(latest.get(item[0], 0)) / item[1])
-                st.markdown(f"<div class='soft-card' style='margin:.8rem 0 1rem;border-left:4px solid #df7952'><span class='section-kicker'>DENEME TEŞHİSİ</span><p style='margin-top:.35rem'>Son denemede en çok gelişim alanı <b>{weakest[0]}</b> görünüyor ({float(latest.get(weakest[0], 0)):.2f}/{weakest[1]} net). Bu hafta bu derse iki kısa tekrar oturumu ekle.</p></div>", unsafe_allow_html=True)
+                sections = list(latest.get("subject_max", {}).items()) or [("Türkçe", 40), ("Matematik", 40), ("Sosyal", 20), ("Fen", 20)]
+                weakest = min(sections, key=lambda item: float(latest.get(item[0], 0)) / max(1, item[1]))
+                st.markdown(f"<div class='soft-card' style='margin:.8rem 0 1rem;border-left:4px solid #df7952'><span class='section-kicker'>DENEME TEŞHİSİ · {html.escape(latest.get('type', 'TYT'))}</span><p style='margin-top:.35rem'>Son denemede kendi testindeki en düşük ders oranı <b>{html.escape(weakest[0])}</b> ({float(latest.get(weakest[0], 0)):.2f}/{weakest[1]} net). Bu hafta bu derse iki kısa tekrar oturumu ekle.</p></div>", unsafe_allow_html=True)
                 latest_frame = pd.DataFrame([{"Ders": name, "Net": latest.get(name, 0), "Kalan net": maximum} for name, maximum in sections])
                 st.bar_chart(latest_frame, x="Ders", y="Net", color="#d45a42", height=230)
-                if len(ordered_results) > 1:
-                    previous = ordered_results[-2]
+                same_type_results = [item for item in ordered_results if item.get("type", "TYT") == latest.get("type", "TYT")]
+                if len(same_type_results) > 1:
+                    previous = same_type_results[-2]
                     delta = float(latest.get("Toplam", 0)) - float(previous.get("Toplam", 0))
-                    st.metric("Son denemeden değişim", f"{'+' if delta >= 0 else ''}{delta:.2f} net", help=f"{previous.get('date')} → {latest.get('date')}")
+                    st.metric(f"Son {latest.get('type', 'TYT')} denemesinden değişim", f"{'+' if delta >= 0 else ''}{delta:.2f} net", help=f"{previous.get('date')} → {latest.get('date')}")
                 mistake_counts = {}
                 for mistake in read_user_json(user_id, "wrong_questions", []):
                     mistake_counts[mistake.get("error_kind", "Diğer")] = mistake_counts.get(mistake.get("error_kind", "Diğer"), 0) + 1
                 if mistake_counts:
                     common_error = max(mistake_counts, key=mistake_counts.get)
                     st.caption(f"Soru laboratuvarında en sık görülen hata: {common_error} ({mistake_counts[common_error]} kayıt).")
-                frame = pd.DataFrame(ordered_results)
-                st.line_chart(frame.set_index("date")[["Türkçe", "Matematik", "Sosyal", "Fen", "Toplam"]])
+                trend_type = st.selectbox("Net trendi", sorted({item.get("type", "TYT") for item in ordered_results}), key="exam_trend_type")
+                trend_rows = [item for item in ordered_results if item.get("type", "TYT") == trend_type]
+                frame = pd.DataFrame(trend_rows)
+                st.line_chart(frame.set_index("date")[["Toplam"]])
                 st.dataframe(frame.iloc[::-1], use_container_width=True, hide_index=True)
                 if st.button("Deneme kayıtlarını temizle", key="clear_exam_results"):
                     write_user_json(user_id, "exam_results", [])
+                    write_user_json(user_id, "exam_topic_results", [])
+                    st.session_state.pop("exam_predictor_report", None)
                     st.rerun()
             except ImportError:
                 st.dataframe(results, use_container_width=True)
@@ -2596,3 +2645,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
