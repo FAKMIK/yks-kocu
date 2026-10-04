@@ -233,6 +233,44 @@ def account_backup(user_id: int) -> bytes:
     return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
 
 
+def restore_account_backup(user_id: int, uploaded_file) -> tuple[bool, str]:
+    """Restore this account's app data and notes from a validated local JSON backup."""
+    try:
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return False, "Yedek dosyası 10 MB sınırını aşıyor."
+        payload = json.loads(uploaded_file.getvalue().decode("utf-8"))
+        if not isinstance(payload, dict) or payload.get("format_version") != 1:
+            return False, "Bu dosya tanınan ANKA yedek biçiminde değil."
+        app_data = payload.get("app_data", {})
+        records = payload.get("records", [])
+        if not isinstance(app_data, dict) or not isinstance(records, list):
+            return False, "Yedek dosyasındaki kayıt yapısı geçersiz."
+        if len(records) > 20000 or len(app_data) > 100:
+            return False, "Yedekte beklenenden fazla kayıt var. Dosyayı kontrol edin."
+        with db_connect() as db:
+            for key, value in app_data.items():
+                if not isinstance(key, str) or len(key) > 100:
+                    continue
+                encoded = json.dumps(value, ensure_ascii=False)
+                db.execute("INSERT INTO app_data(user_id,key,value) VALUES(?,?,?) "
+                           "ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value",
+                           (user_id, key, encoded))
+            for item in records:
+                if not isinstance(item, dict):
+                    continue
+                record_id = str(item.get("id") or uuid.uuid4().hex[:12])[:100]
+                db.execute("INSERT INTO records(id,user_id,type,title,created_at,content) VALUES(?,?,?,?,?,?) "
+                           "ON CONFLICT(id) DO UPDATE SET type=excluded.type,title=excluded.title,"
+                           "created_at=excluded.created_at,content=excluded.content WHERE records.user_id=excluded.user_id",
+                           (record_id, user_id, str(item.get("type", "eski_kayit"))[:100],
+                            str(item.get("title", "Yedekten gelen kayıt"))[:300],
+                            str(item.get("created_at", datetime.now().astimezone().isoformat()))[:100],
+                            str(item.get("content", ""))[:MAX_MEMORY_CHARS]))
+        return True, f"Yedek geri yüklendi: {len(records)} hafıza kaydı ve {len(app_data)} veri alanı işlendi."
+    except (UnicodeDecodeError, json.JSONDecodeError, AttributeError, TypeError, ValueError) as exc:
+        return False, f"Yedek okunamadı: {exc}"
+
+
 def logout_user() -> None:
     # Aynı tarayıcıdan başka hesapla giriş yapılırken önceki hesabın arayüz önbelleğini temizle.
     for key in list(st.session_state.keys()):
@@ -824,9 +862,11 @@ def render_dashboard(user_id: int, username: str) -> None:
     focus_logs = read_user_json(user_id, "study_sessions", [])
     exam_results = read_user_json(user_id, "exam_results", [])
     ypt_logs = read_user_json(user_id, "ypt_sessions", [])
+    daily_checkins = read_user_json(user_id, "daily_checkins", {})
     planned_exams = read_user_json(user_id, "exam_plan", [])
     records = load_memory(user_id)
     today = date.today()
+    today_checkin = daily_checkins.get(today.isoformat(), {}) if isinstance(daily_checkins, dict) else {}
     today_name = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][today.weekday()]
     safe_name = html.escape(username, quote=True)
     today_minutes = sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == today.isoformat())
@@ -864,6 +904,8 @@ def render_dashboard(user_id: int, username: str) -> None:
     unfinished_today = [item for item in tasks if item.get("date") == today.isoformat() and not item.get("done")]
     if review_due:
         insight = f"Tekrar zamanı gelen {review_due} yanlış sorunu çözerek bilgini pekiştir."
+    elif today_checkin and (int(today_checkin.get("energy", 3)) <= 2 or today_checkin.get("mood") in {"Yorgun", "Gergin"}):
+        insight = "Bugün enerjini koru: kısa bir odak bloğu seç, ardından mola ver. İstikrar, yoğunluktan daha değerlidir."
     elif unfinished_today:
         task = unfinished_today[0]
         insight = f"Bugünkü önceliğin: {task.get('subject', 'Ders')} · {task.get('topic') or task.get('target') or 'planlı görev'}"
@@ -1000,6 +1042,25 @@ def render_dashboard(user_id: int, username: str) -> None:
                         st.rerun()
         else:
             st.markdown("<div class='empty-state'>Bugün için planlanmış görev yok. Programını ekleyip görev listesine dönüştürebilirsin.</div>", unsafe_allow_html=True)
+        with st.expander("☀️ Günlük enerji ve mod", expanded=not bool(today_checkin)):
+            mood_options = ["Motive", "Dengeli", "Yorgun", "Gergin"]
+            old_mood = today_checkin.get("mood", "Dengeli")
+            mood_index = mood_options.index(old_mood) if old_mood in mood_options else 1
+            with st.form("daily_checkin_form"):
+                mood = st.radio("Bugün kendini nasıl hissediyorsun?", mood_options, index=mood_index, horizontal=True)
+                energy = st.slider("Enerji düzeyi", min_value=1, max_value=5,
+                                   value=max(1, min(5, int(today_checkin.get("energy", 3)))),
+                                   help="1: çok düşük · 5: çok yüksek")
+                checkin_submitted = st.form_submit_button("Günlük durumumu kaydet", use_container_width=True)
+            if checkin_submitted:
+                latest_checkins = read_user_json(user_id, "daily_checkins", {})
+                if not isinstance(latest_checkins, dict):
+                    latest_checkins = {}
+                latest_checkins[today.isoformat()] = {"mood": mood, "energy": int(energy)}
+                write_user_json(user_id, "daily_checkins", latest_checkins)
+                st.rerun()
+            if today_checkin:
+                st.caption(f"Bugün kaydedilen durum: {today_checkin.get('mood', 'Dengeli')} · enerji {today_checkin.get('energy', 3)}/5")
         st.markdown('<div class="section-kicker" style="margin-top:1.4rem">Son hareketler</div>', unsafe_allow_html=True)
         if records:
             for item in reversed(records[-4:]):
@@ -1089,6 +1150,20 @@ def phoenix_mark_svg(size: int = 36) -> str:
             'stroke-linecap="round" stroke-linejoin="round"><path d="M32 54c-3-10-2-19 1-28 1 8 5 12 10 15-1-11 4-18 11-24-1 13 3 21 7 26-5-1-9-2-13-5 1 7-1 13-5 18"/>'
             '<path d="M30 54c3-10 2-19-1-28-1 8-5 12-10 15 1-11-4-18-11-24 1 13-3 21-7 26 5-1 9-2 13-5-1 7 1 13 5 18"/>'
             '<path d="M32 28c-4-6-4-12 0-19 4 7 4 13 0 19Zm-8 30c3-3 5-6 8-10 3 4 5 7 8 10M26 59h12"/></svg>')
+
+
+def phoenix_watermark_svg() -> str:
+    """Large transparent phoenix line art for the ambient page background."""
+    return '''<div class="phoenix-backdrop" aria-hidden="true"><svg viewBox="0 0 900 900" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="wmWing" x1=".08" y1=".96" x2=".92" y2=".05"><stop stop-color="#ed4655"/><stop offset=".48" stop-color="#b54ed5"/><stop offset="1" stop-color="#7863ff"/></linearGradient><radialGradient id="wmCore"><stop stop-color="#f15b72" stop-opacity=".55"/><stop offset="1" stop-color="#8f41cb" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="472" cy="424" r="340" fill="url(#wmCore)"/>
+    <g fill="none" stroke="url(#wmWing)" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="12" d="M448 552C351 493 263 404 198 286c79 34 144 74 197 124C348 301 361 204 431 94c12 135 46 239 102 312 12-122 73-225 179-305-45 134-44 244 5 330-73-33-130-75-174-127 19 113-3 207-68 289-9-88-33-160-82-213-1 67-10 124-33 172Z"/>
+    <path stroke-width="8" d="M429 476c-88-92-180-151-291-177 57 67 99 133 125 202-97-44-186-57-281-42 92 45 164 103 218 176-88-12-164-3-238 30 111 9 205 38 288 94-64 18-120 48-172 92 111-30 210-31 304-4m40-371c88-92 180-151 291-177-57 67-99 133-125 202 97-44 186-57 281-42-92 45-164 103-218 176 88-12 164-3 238 30-111 9-205 38-288 94 64 18 120 48 172 92-111-30-210-31-304-4"/>
+    <path stroke-width="10" d="M420 595c-29 69-63 125-107 179m194-179c29 69 63 125 107 179M455 350c-33-55-37-112-11-177 47 59 63 119 40 181"/>
+    </g><g fill="#ffd0a4"><circle cx="455" cy="386" r="8"/><path d="m465 384 31 8-29 12Z"/></g>
+    <g fill="none" stroke="#f66b83" stroke-linecap="round"><path stroke-width="5" d="M227 168l-8-22m-28 54-18-15m534-18 8-22m28 54 18-15"/><path stroke-width="3" d="m288 104-6-15m326 15 6-15"/></g>
+    </svg></div>'''
 
 
 def render_login() -> None:
@@ -1232,6 +1307,13 @@ def main():
         st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
                            mime="application/json", use_container_width=True)
+        with st.expander("Yedekten geri yükle"):
+            backup_upload = st.file_uploader("ANKA JSON yedeği", type=["json"], key="restore_backup_file")
+            if backup_upload and st.button("Yedeği bu hesaba uygula", key="restore_backup_button", use_container_width=True):
+                restored, restore_message = restore_account_backup(user_id, backup_upload)
+                (st.success if restored else st.error)(restore_message)
+                if restored:
+                    st.rerun()
         theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], index=1, key="theme_mode")
         st.divider()
 
@@ -1323,6 +1405,8 @@ def main():
     st.markdown("""<style>
     [data-testid="stAppViewContainer"] .main { position:relative; }
     [data-testid="stMainBlockContainer"] { position:relative; }
+    .phoenix-backdrop { position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;justify-content:flex-end;align-items:center;overflow:hidden;opacity:.075;mix-blend-mode:screen; }
+    .phoenix-backdrop svg { width:min(74vw,900px);height:auto;transform:translate(13%,2%);filter:drop-shadow(0 0 30px #a844cd55); }
     .app-masthead { display:flex;align-items:center;justify-content:space-between;margin:-.55rem 0 1.2rem;padding:.7rem .95rem;border:1px solid #ffffff13;border-radius:15px;background:linear-gradient(100deg,#24182dba,#291621a8);color:#f6eefa;box-shadow:0 8px 30px #13091819; }
     .app-masthead-brand { display:flex;align-items:center;gap:.65rem;font-size:.74rem;font-weight:820;letter-spacing:.16em; }
     .app-masthead-mark { display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:linear-gradient(140deg,#a847ca,#dd475b 68%,#f08a53);color:white; }
@@ -1367,11 +1451,14 @@ def main():
     .stButton button:hover,.stDownloadButton button:hover { filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 11px 30px #9c356f45!important; }
     [data-testid="stProgressBar"] > div > div { background:linear-gradient(90deg,#a34bc7,#d84467,#f07c4c)!important; }
     .study-heatmap { border-radius:18px!important; }.calendar-day { border-radius:16px!important; }
-    [data-testid="stMainBlockContainer"] { max-width:1460px!important; }
+    [data-testid="stMainBlockContainer"] { max-width:1460px!important;z-index:1; }
     @media(prefers-reduced-motion:reduce) { .phoenix-hero { animation:none!important; } }
     @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.phoenix-hero { min-width:112px!important;width:30%!important; }.quick-access-title { font-size:1rem!important; }.study-heatmap { gap:4px;padding:.65rem; } }
     </style>""", unsafe_allow_html=True)
     st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'><span class='app-masthead-mark'>{phoenix_mark_svg(22)}</span> ANKA · YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
+    st.markdown(phoenix_watermark_svg(), unsafe_allow_html=True)
+    if theme_mode == "Açık":
+        st.markdown("<style>.phoenix-backdrop{opacity:.035;mix-blend-mode:multiply}.phoenix-backdrop svg{filter:drop-shadow(0 0 24px #8e48ad20)}</style>", unsafe_allow_html=True)
 
     if not api_ready:
         st.warning("Gemini API hazır değil. Kayıtlı veriler, notlar ve hesap makinesi kullanılabilir; AI özellikleri API anahtarı gerektirir.")
@@ -1379,7 +1466,7 @@ def main():
     records = load_memory(user_id)
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
-        active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "🎓 Sınav Planlayıcı", "📈 İlerleme",
+        active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "🧭 Konu Haritası", "📅 Program", "🎓 Sınav Planlayıcı", "📈 İlerleme",
                                              "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "⏱️ YPT Saatlerim", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
@@ -1448,6 +1535,71 @@ def main():
                     mistake["mastered"] = True
                     write_user_json(user_id, "wrong_questions", mistakes)
                     st.rerun()
+
+    if active_view == "🧭 Konu Haritası":
+        st.markdown("# 🧭 TYT · AYT konu haritası")
+        st.caption("Kendi konu listenle eksiklerini gör, tekrar sırası belirle ve ilerlemeni kalıcı olarak takip et.")
+        topic_rows = read_user_json(user_id, "topic_map", [])
+        topic_rows = topic_rows if isinstance(topic_rows, list) else []
+        with st.form("topic_map_add_form", clear_on_submit=True):
+            topic_cols = st.columns([.8, 1.2, 2, 1.25])
+            exam_track = topic_cols[0].selectbox("Alan", ["TYT", "AYT"])
+            topic_subject = topic_cols[1].selectbox("Ders", ["Matematik", "Geometri", "Türkçe", "Fizik", "Kimya", "Biyoloji", "Tarih", "Coğrafya", "Felsefe", "Din Kültürü"])
+            topic_name = topic_cols[2].text_input("Konu", placeholder="Örn. Problemler · yaş problemleri")
+            prerequisite = topic_cols[3].text_input("Ön koşul (isteğe bağlı)", placeholder="Temel işlemler")
+            topic_added = st.form_submit_button("＋ Konuyu haritaya ekle", use_container_width=True)
+        if topic_added:
+            if not topic_name.strip():
+                st.warning("Haritaya eklemek için konu adı yaz.")
+            elif any(row.get("track") == exam_track and row.get("subject") == topic_subject and row.get("topic", "").casefold() == topic_name.strip().casefold() for row in topic_rows):
+                st.info("Bu konu haritanda zaten var.")
+            else:
+                topic_rows.append({"id": uuid.uuid4().hex[:10], "track": exam_track, "subject": topic_subject,
+                                   "topic": topic_name.strip(), "prerequisite": prerequisite.strip(), "status": "Başlanmadı"})
+                write_user_json(user_id, "topic_map", topic_rows)
+                st.rerun()
+        if topic_rows:
+            filter_cols = st.columns(2)
+            track_filter = filter_cols[0].selectbox("Sınav filtresi", ["Tümü", "TYT", "AYT"], key="topic_track_filter")
+            subject_filter = filter_cols[1].selectbox("Ders filtresi", ["Tümü"] + sorted({row.get("subject", "Diğer") for row in topic_rows}), key="topic_subject_filter")
+            visible_topics = [row for row in topic_rows if (track_filter == "Tümü" or row.get("track") == track_filter)
+                             and (subject_filter == "Tümü" or row.get("subject") == subject_filter)]
+            total_topics = len(visible_topics)
+            mastered_topics = sum(row.get("status") == "Tamamlandı" for row in visible_topics)
+            review_topics = sum(row.get("status") == "Tekrar" for row in visible_topics)
+            topic_metrics = st.columns(3)
+            topic_metrics[0].metric("Haritadaki konu", total_topics)
+            topic_metrics[1].metric("Tamamlandı", mastered_topics)
+            topic_metrics[2].metric("Tekrar sırası", review_topics)
+            st.progress(mastered_topics / max(1, total_topics), text=f"Konu hâkimiyeti · %{round(100 * mastered_topics / max(1, total_topics))}")
+            for row in visible_topics:
+                with st.container(border=True):
+                    topic_cols = st.columns([2.2, 1.3, 1.5, .55])
+                    prereq_text = f" · Önce: {html.escape(row.get('prerequisite'))}" if row.get("prerequisite") else ""
+                    topic_cols[0].markdown(f"**{row.get('track', 'TYT')} · {html.escape(row.get('subject', 'Ders'))}**  \n{html.escape(row.get('topic', 'Konu'))}{prereq_text}")
+                    current_status = row.get("status", "Başlanmadı")
+                    status_options = ["Başlanmadı", "Çalışılıyor", "Tekrar", "Tamamlandı"]
+                    status_index = status_options.index(current_status) if current_status in status_options else 0
+                    changed_status = topic_cols[1].selectbox("Durum", status_options, index=status_index, key=f"topic_status_{row.get('id')}", label_visibility="collapsed")
+                    confidence = max(1, min(5, int(row.get("confidence", 3))))
+                    new_confidence = topic_cols[2].select_slider("Hâkimiyet", options=[1, 2, 3, 4, 5], value=confidence, key=f"topic_conf_{row.get('id')}", label_visibility="collapsed")
+                    if changed_status != current_status or int(new_confidence) != confidence:
+                        row["status"] = changed_status
+                        row["confidence"] = int(new_confidence)
+                        write_user_json(user_id, "topic_map", topic_rows)
+                        st.rerun()
+                    if topic_cols[3].button("×", key=f"topic_delete_{row.get('id')}", help="Konuyu haritadan sil"):
+                        write_user_json(user_id, "topic_map", [item for item in topic_rows if item.get("id") != row.get("id")])
+                        st.rerun()
+            if visible_topics:
+                st.markdown("### Derslere göre konu hâkimiyeti")
+                topic_summary = {}
+                for row in visible_topics:
+                    topic_summary.setdefault(row.get("subject", "Diğer"), []).append(int(row.get("confidence", 3)))
+                topic_frame = pd.DataFrame([{"Ders": subject, "Ortalama hâkimiyet (1–5)": sum(scores) / len(scores)} for subject, scores in topic_summary.items()])
+                st.bar_chart(topic_frame, x="Ders", y="Ortalama hâkimiyet (1–5)", color="#ba54c9")
+        else:
+            st.info("Haritan boş. Çalıştığın konuları yukarıdan ekledikçe eksik, tekrar ve tamamlanan başlıkların burada birikecek.")
 
     if active_view == "📅 Program":
         st.subheader("Çalışma programı")
