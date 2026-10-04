@@ -1,32 +1,41 @@
-"""YKS Koçu Pro - Kapsamlı YKS Hazırlık & Yapay Zeka Platformu
+"""YKS Koçu - Streamlit uygulaması.
 
-Kurulum: pip install streamlit google-generativeai requests beautifulsoup4 matplotlib pillow
-API Anahtarı: .streamlit/secrets.toml içinde GEMINI_API_KEY = "..."
+Kurulum: pip install -r requirements.txt
+API anahtarı: .streamlit/secrets.toml içine GEMINI_API_KEY = "..."
 """
 
 from __future__ import annotations
 
 import hashlib
+import ast
+import asyncio
+from contextlib import contextmanager
+import ipaddress
 import io
 import json
 import os
-import random
 import re
-from datetime import datetime, date
+import socket
+import sqlite3
+import uuid
+import hmac
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 import streamlit as st
+from bs4 import BeautifulSoup
 
 try:
-    from bs4 import BeautifulSoup
-except ImportError:
-    BeautifulSoup = None
-
-try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
+
+try:
+    import edge_tts
+except ImportError:
+    edge_tts = None
 
 try:
     from PIL import Image
@@ -39,481 +48,899 @@ except ImportError:
     plt = None
 
 
-# --- SAYFA YAPILANDIRMASI ---
-st.set_page_config(
-    page_title="YKS Koçu Pro | Dijital Koçluk Platformu",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
+st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
 
-# --- MODERN VE TEMA UYUMLU CSS ---
 st.markdown("""
 <style>
-.main .block-container {
-    max-width: 100% !important;
-    padding: 1.5rem 2.5rem !important;
-}
-
-div[data-testid="stMetric"] {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(128, 128, 128, 0.2) !important;
-    border-radius: 14px !important;
-    padding: 16px !important;
-    backdrop-filter: blur(10px);
-}
-
-div[data-testid="stMetricLabel"] p {
-    font-weight: 600 !important;
-    opacity: 0.9 !important;
-}
-
-div[data-testid="stMetricValue"] div {
-    font-size: 1.8rem !important;
-    font-weight: 700 !important;
-}
-
-.stButton button, .stDownloadButton button {
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    color: white !important;
-    border: none !important;
-    padding: 0.5rem 1.25rem !important;
-    transition: all 0.2s ease !important;
-}
-
-.stButton button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-}
-
-.stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
-    border-bottom: 2px solid rgba(128, 128, 128, 0.2);
-}
-
-.stTabs [data-baseweb="tab"] {
-    border-radius: 8px 8px 0 0;
-    font-weight: 600;
-    padding: 10px 16px;
-}
-
-[data-testid="stChatMessage"] {
-    border-radius: 12px;
-    border: 1px solid rgba(128, 128, 128, 0.15);
-    margin-bottom: 10px;
-}
+:root { --ink:#172554; --brand:#334e8c; --soft:#f3f6fb; --line:#dbe3ef; }
+.main { color:var(--ink); font-family:'Segoe UI',Roboto,sans-serif; }
+h1,h2,h3 { color:var(--brand); font-weight:650; }
+.stButton button,.stDownloadButton button { border-radius:10px; font-weight:600; transition:.18s ease; }
+.stButton button { background:var(--brand); color:white; border:0; }
+.stButton button:hover { background:#253b70; color:white; transform:translateY(-1px); }
+.stTextInput input,.stTextArea textarea { border-radius:9px; border-color:var(--line); }
+[data-testid="stSidebar"] { background:#f7f9fc; }
+[data-testid="stMetric"] { background:white; border:1px solid var(--line); border-radius:12px; padding:12px; }
+.stTabs [data-baseweb="tab-list"] { gap:8px; }
+.stTabs [data-baseweb="tab"] { border-radius:8px 8px 0 0; }
+[data-testid="stChatMessage"] { border-radius:12px; }
+@media(max-width:650px) { .stTabs [data-baseweb="tab"] { padding:6px 9px; } }
 </style>
 """, unsafe_allow_html=True)
 
 MEMORY_DIR = Path(__file__).resolve().parent / "yks_hafiza_kayitlari"
-MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 MAX_MEMORY_CHARS = 4000
+MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+DB_PATH = MEMORY_DIR / "yks_kocu.sqlite3"
 
 
-# --- YARDIMCI FONKSİYONLAR ---
+@contextmanager
+def db_connect():
+    connection = sqlite3.connect(DB_PATH, timeout=15)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+
+def init_db():
+    with db_connect() as db:
+        db.executescript("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS records (
+                id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                type TEXT NOT NULL, title TEXT NOT NULL, created_at TEXT NOT NULL, content TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS records_user_created ON records(user_id, created_at);
+            CREATE TABLE IF NOT EXISTS app_data (
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(user_id, key)
+            );
+        """)
+
+
+init_db()
+
+
+def password_digest(password: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 310_000).hex()
+
+
+def create_account(username: str, password: str):
+    username = username.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username):
+        return None, "Kullanıcı adı 3–32 karakter olmalı; İngilizce harf, rakam, nokta, tire veya alt çizgi kullanın."
+    if len(password) < 10:
+        return None, "Parola en az 10 karakter olmalı."
+    salt = os.urandom(16).hex()
+    try:
+        with db_connect() as db:
+            cur = db.execute("INSERT INTO users(username,password_hash,salt,created_at) VALUES(?,?,?,?)",
+                             (username, password_digest(password, salt), salt, datetime.now().astimezone().isoformat()))
+            user_id = cur.lastrowid
+        # Eski sürümde aynı rumuzla oluşmuş JSONL hafızayı, yeni hesabın SQLite kaydına taşı.
+        legacy_hash = hashlib.sha256(username.strip().casefold().encode("utf-8")).hexdigest()[:20]
+        legacy_path = MEMORY_DIR / f"hafiza_{legacy_hash}.jsonl"
+        if legacy_path.exists():
+            with legacy_path.open("r", encoding="utf-8") as handle, db_connect() as db:
+                for line in handle:
+                    try:
+                        old = json.loads(line)
+                        db.execute("INSERT OR IGNORE INTO records(id,user_id,type,title,created_at,content) VALUES(?,?,?,?,?,?)",
+                                   (old.get("id") or uuid.uuid4().hex[:12], user_id, old.get("type", "eski_kayit"),
+                                    old.get("title", "Eski kayıt"), old.get("created_at", datetime.now().isoformat()), old.get("content", "")))
+                    except (json.JSONDecodeError, AttributeError):
+                        continue
+        return user_id, None
+    except sqlite3.IntegrityError:
+        return None, "Bu kullanıcı adı zaten kayıtlı."
+
+
+def authenticate(username: str, password: str):
+    with db_connect() as db:
+        row = db.execute("SELECT id,password_hash,salt FROM users WHERE username=? COLLATE NOCASE", (username.strip(),)).fetchone()
+    if not row or not hmac.compare_digest(password_digest(password, row["salt"]), row["password_hash"]):
+        return None
+    return row["id"]
+
+
+def account_backup(user_id: int) -> bytes:
+    with db_connect() as db:
+        user = db.execute("SELECT username,created_at FROM users WHERE id=?", (user_id,)).fetchone()
+        records = [dict(row) for row in db.execute(
+            "SELECT id,type,title,created_at,content FROM records WHERE user_id=? ORDER BY created_at", (user_id,)
+        )]
+        data = {row["key"]: json.loads(row["value"]) for row in db.execute(
+            "SELECT key,value FROM app_data WHERE user_id=?", (user_id,)
+        )}
+    payload = {"format_version": 1, "username": user["username"], "created_at": user["created_at"],
+               "exported_at": datetime.now().astimezone().isoformat(), "records": records, "app_data": data}
+    return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def logout_user() -> None:
+    # Aynı tarayıcıdan başka hesapla giriş yapılırken önceki hesabın arayüz önbelleğini temizle.
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+
 def configure_gemini() -> bool:
+    """API anahtarını secrets veya ortam değişkeninden alıp Gemini'yi hazırlar."""
     if genai is None:
-        st.error("Gemini paketi yüklü değil. `pip install google-generativeai` komutunu çalıştırın.")
+        st.error("Gemini paketi bulunamadı. `pip install google-genai` komutunu çalıştırın.")
         return False
     try:
         key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
-    except (FileNotFoundError, AttributeError):
+    except Exception:
         key = os.getenv("GEMINI_API_KEY")
     if not key:
         return False
-    genai.configure(api_key=key)
+    st.session_state.gemini_client = genai.Client(api_key=key)
     return True
 
 
 def get_model():
-    return genai.GenerativeModel("gemini-1.5-flash")
+    client = st.session_state.get("gemini_client")
+    if client is None:
+        raise RuntimeError("Gemini hazır değil. GEMINI_API_KEY ve google-genai kurulumunu kontrol edin.")
+    return client
 
 
-def get_memory_filepath(user_key: str) -> Path:
-    digest = hashlib.sha256(user_key.strip().casefold().encode("utf-8")).hexdigest()[:20]
-    return MEMORY_DIR / f"hafiza_{digest}.jsonl"
+def load_memory(user_id: int) -> list[dict]:
+    with db_connect() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT id,type,title,created_at,content FROM records WHERE user_id=? ORDER BY created_at,id", (user_id,)
+        )]
 
 
-def load_memory(user_key: str) -> list[dict]:
-    path = get_memory_filepath(user_key)
-    records = []
-    if not path.exists():
-        return records
+def save_memory(user_id: int, record_type: str, content: str, title: str = "") -> None:
+    now = datetime.now().astimezone()
+    record = {
+        "id": hashlib.sha256(f"{now.isoformat()}-{os.urandom(8).hex()}".encode()).hexdigest()[:12],
+        "type": record_type,
+        "title": title.strip() or "Başlıksız kayıt",
+        "created_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "content": content,
+    }
+    with db_connect() as db:
+        db.execute("INSERT INTO records(id,user_id,type,title,created_at,content) VALUES(?,?,?,?,?,?)",
+                   (record["id"], user_id, record["type"], record["title"], record["created_at"], content))
+
+
+def delete_memory_record(user_id: int, record_id: str) -> None:
+    with db_connect() as db:
+        db.execute("DELETE FROM records WHERE user_id=? AND id=?", (user_id, record_id))
+
+
+def memory_to_text(records: list[dict]) -> str:
+    chunks = []
+    for i, record in enumerate(records[-25:], start=1):
+        chunks.append(
+            f"KAYIT {i}\nTür: {record.get('type', 'bilinmiyor')}\n"
+            f"Başlık: {record.get('title', 'Başlık yok')}\n"
+            f"İçerik: {record.get('content', '')}"
+        )
+    return "\n\n".join(chunks)[-MAX_MEMORY_CHARS:]
+
+
+def generate_text(prompt: str) -> str:
+    response = get_model().models.generate_content(model="gemini-2.5-flash", contents=prompt)
+    text = getattr(response, "text", None)
+    if not text:
+        raise RuntimeError("Yapay zekâ boş yanıt döndürdü. İsteği yeniden deneyin.")
+    return text.strip()
+
+
+def analyze_image(uploaded_file) -> str:
+    if Image is None:
+        raise RuntimeError("Görsel analizi için Pillow gerekli: `pip install pillow`.")
+    uploaded_file.seek(0)
+    image = Image.open(uploaded_file).convert("RGB")
+    prompt = (
+        "Bu bir YKS hazırlık sorusu. Önce soruyu doğru okuyup çözümünü adım adım anlat. "
+        "Öğrencinin olası hatasını belirt, hata türünü dikkat/bilgi/süre olarak sınıflandır "
+        "ve kısa bir pekiştirme ödevi öner. Görselde okunmayan yer varsa bunu açıkça söyle."
+    )
+    return generate_image_response(prompt, image)
+
+
+def generate_image_response(prompt: str, image) -> str:
+    from google.genai import types
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG")
+    response = get_model().models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[prompt, types.Part.from_bytes(data=buffer.getvalue(), mime_type="image/jpeg")],
+    )
+    text = getattr(response, "text", None)
+    if not text:
+        raise RuntimeError("Görsel için yanıt alınamadı.")
+    return text.strip()
+
+
+def safe_calculate(expression: str) -> str:
+    """JARVIS hesap makinesi: eval kullanmadan temel aritmetiği işler."""
+    operations = {ast.Add: lambda a, b: a + b, ast.Sub: lambda a, b: a - b,
+                  ast.Mult: lambda a, b: a * b, ast.Div: lambda a, b: a / b,
+                  ast.Pow: lambda a, b: a ** b, ast.Mod: lambda a, b: a % b}
+
+    def visit(node):
+        if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+            return node.value
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            value = visit(node.operand)
+            return value if isinstance(node.op, ast.UAdd) else -value
+        if isinstance(node, ast.BinOp) and type(node.op) in operations:
+            value = operations[type(node.op)](visit(node.left), visit(node.right))
+            if abs(value) > 1e100:
+                raise ValueError("Sonuç çok büyük")
+            return value
+        raise ValueError("Desteklenmeyen işlem")
+
     try:
-        with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    records.append(json.loads(line))
-    except Exception as e:
-        st.warning(f"Hafıza yükleme hatası: {e}")
-    return records
+        answer = visit(ast.parse(expression.replace(",", "."), mode="eval").body)
+        return f"İşlemin sonucu: {answer:g}"
+    except (ArithmeticError, SyntaxError, ValueError, OverflowError):
+        return "Bu matematiksel ifadeyi hesaplayamadım. Örnek: hesapla 24 * (3 + 2)"
 
 
-def save_memory_record(user_key: str, record: dict):
-    path = get_memory_filepath(user_key)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
-def build_memory_context(user_key: str) -> str:
-    records = load_memory(user_key)
-    if not records:
-        return ""
-    context_str = "Kullanıcı Hafızası:\n"
-    for rec in records:
-        context_str += f"- [{rec.get('tarih', '')}] {rec.get('icerik', '')}\n"
-    return context_str[:MAX_MEMORY_CHARS]
-
-
-def web_search_duckduckgo(query: str, max_results: int = 3) -> list[dict]:
-    if BeautifulSoup is None:
-        return []
-    url = "https://html.duckduckgo.com/html/"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+def read_user_json(user_id: int, name: str, default):
+    with db_connect() as db:
+        row = db.execute("SELECT value FROM app_data WHERE user_id=? AND key=?", (user_id, name)).fetchone()
+    if not row:
+        return default
     try:
-        res = requests.post(url, data={"q": query}, headers=headers, timeout=8)
-        soup = BeautifulSoup(res.text, "html.parser")
-        results = []
-        for a in soup.find_all("a", class_="result__url", limit=max_results):
-            title_elem = a.find_parent("div", class_="result__body")
-            if title_elem:
-                title = title_elem.find("a", class_="result__a").text.strip()
-                snippet = title_elem.find("a", class_="result__snippet").text.strip()
-                results.append({"title": title, "snippet": snippet, "link": a["href"]})
-        return results
-    except Exception:
-        return []
+        return json.loads(row["value"])
+    except json.JSONDecodeError:
+        return default
 
 
-def generate_schedule_image(schedule_data: dict) -> io.BytesIO | None:
+def write_user_json(user_id: int, name: str, payload) -> None:
+    encoded = json.dumps(payload, ensure_ascii=False)
+    with db_connect() as db:
+        db.execute("INSERT INTO app_data(user_id,key,value) VALUES(?,?,?) "
+                   "ON CONFLICT(user_id,key) DO UPDATE SET value=excluded.value", (user_id, name, encoded))
+
+
+def create_new_chat(user_id: int) -> None:
+    chats = read_user_json(user_id, "chats", [])
+    chat = {"id": uuid.uuid4().hex[:12], "title": "Yeni sohbet", "messages": []}
+    chats.append(chat)
+    write_user_json(user_id, "chats", chats)
+    st.session_state.active_chat = chat["id"]
+    # Callback çalışırken selectbox henüz çizilmedi; yeni sohbeti aktif seç.
+    st.session_state.chat_selector = chat["id"]
+
+
+def render_reminders(user_id: int):
+    reminders = read_user_json(user_id, "reminders", [])
+    now = datetime.now().astimezone()
+    for reminder in reminders:
+        try:
+            due = datetime.fromisoformat(reminder["due_at"])
+            if due.tzinfo is None:
+                due = due.astimezone()
+            if not reminder.get("done") and due <= now:
+                st.warning(f"⏰ Hatırlatma zamanı geldi: {reminder.get('text', '')}")
+            else:
+                st.write(f"{'✅' if reminder.get('done') else '⏰'} {due.astimezone():%d.%m.%Y %H:%M} — {reminder.get('text', '')}")
+            if not reminder.get("done") and st.button("Tamamlandı", key=f"done_reminder_{reminder.get('id')}"):
+                for item in reminders:
+                    if item.get("id") == reminder.get("id"):
+                        item["done"] = True
+                write_user_json(user_id, "reminders", reminders)
+                st.rerun()
+        except (KeyError, ValueError):
+            continue
+
+
+if hasattr(st, "fragment"):
+    render_reminders = st.fragment(run_every="30s")(render_reminders)
+
+
+def speak_text(text: str, speed: float = 1.0):
+    """Edge-TTS sesini Streamlit oynatıcısına hazır MP3 verisi olarak döndürür."""
+    if edge_tts is None:
+        raise RuntimeError("Sesli yanıt için edge-tts paketi gerekli: pip install edge-tts")
+
+    async def synthesize():
+        audio = bytearray()
+        rate = f"{int((speed - 1.0) * 100):+d}%"
+        async for chunk in edge_tts.Communicate(text=text[:2500], voice="tr-TR-AhmetNeural", rate=rate).stream():
+            if chunk["type"] == "audio":
+                audio.extend(chunk["data"])
+        return bytes(audio)
+
+    return asyncio.run(synthesize())
+
+
+def transcribe_audio(audio_file) -> str:
+    """Tarayıcı mikrofon kaydını Gemini ile Türkçe metne çevirir."""
+    from google.genai import types
+    raw = audio_file.getvalue()
+    mime = getattr(audio_file, "type", None) or "audio/wav"
+    response = get_model().models.generate_content(
+        model="gemini-2.5-flash",
+        contents=["Bu Türkçe ses kaydını aynen yazıya aktar. Yalnızca duyulan metni döndür.",
+                  types.Part.from_bytes(data=raw, mime_type=mime)],
+    )
+    text = getattr(response, "text", None)
+    if not text:
+        raise RuntimeError("Ses kaydı çözümlenemedi.")
+    return text.strip()
+
+
+def scrape_link(url: str, max_chars: int = 6000):
+    """HTTP(S) sayfasının metnini alır; özel ağ adreslerini ve yönlendirmeleri reddeder."""
+    url = url.strip()
+    if not re.match(r"^https?://", url, re.IGNORECASE):
+        url = "https://" + url
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in {"http", "https"} or not host or host in {"localhost", "127.0.0.1", "::1"}:
+        return None, "Geçerli ve herkese açık bir http(s) adresi girin."
+    if host.endswith((".local", ".internal")):
+        return None, "Yerel ağ adresleri okunamaz."
+    try:
+        addresses = {item[4][0] for item in socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)}
+        if not addresses or any(not ipaddress.ip_address(address).is_global for address in addresses):
+            return None, "Yerel veya özel ağ adresleri okunamaz."
+    except (OSError, ValueError):
+        return None, "Sunucu adresi çözümlenemedi."
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; YKSKocu/1.0)"},
+            timeout=(5, 12),
+            allow_redirects=False,
+        )
+        if 300 <= response.status_code < 400:
+            return None, "Güvenlik için yönlendiren bağlantılar takip edilmiyor; hedef adresi doğrudan girin."
+        response.raise_for_status()
+        content_type = response.headers.get("Content-Type", "").lower()
+        if "pdf" in content_type or parsed.path.casefold().endswith(".pdf"):
+            try:
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(response.content))
+                pdf_text = "\n".join((page.extract_text() or "") for page in reader.pages)
+                pdf_text = pdf_text[:max_chars]
+                return ({"title": Path(parsed.path).name or "PDF kaynak", "content": pdf_text}, None) if pdf_text.strip() else (None, "PDF içinde seçilebilir metin bulunamadı.")
+            except ImportError:
+                return None, "PDF okumak için pypdf yükleyin: pip install pypdf"
+            except Exception as exc:
+                return None, f"PDF okunamadı: {exc}"
+        if "html" not in content_type and "text/plain" not in content_type:
+            return None, "Bu bağlantı HTML/metin sayfası değil; okunamadı."
+    except requests.RequestException as exc:
+        return None, f"Link okunamadı: {exc}"
+    soup = BeautifulSoup(response.text, "html.parser")
+    title = soup.title.get_text(" ", strip=True) if soup.title else "Başlık bulunamadı"
+    for tag in soup(["script", "style", "nav", "footer", "header", "noscript", "svg"]):
+        tag.decompose()
+    lines = [line.strip() for line in soup.get_text("\n").splitlines() if line.strip()]
+    content = "\n".join(lines)[:max_chars]
+    if not content:
+        return None, "Sayfadan okunabilir metin çıkarılamadı."
+    return {"title": title, "content": content}, None
+
+
+def summarize_resource(title: str, content: str) -> str:
+    return generate_text(
+        "Aşağıdaki eğitim kaynağını YKS öğrencisi için Türkçe özetle. Ana kavramları, önemli formülleri/kuralları "
+        "ve 3 maddelik tekrar listesini ver. Kaynakta bulunmayan bilgi ekleme.\n"
+        f"Başlık: {title}\nİçerik:\n{content[:12000]}"
+    )
+
+
+def generate_structured_plan(plan_text: str) -> dict:
+    prompt = (
+        "Aşağıdaki çalışma planını JSON'a dönüştür. Yalnızca geçerli JSON döndür. "
+        'Şema: {"program":[{"gun":"Pazartesi","dersler":[{"ders":"Matematik",'
+        '"sure":"2 saat","konu":"Fonksiyonlar","hedef":"20 soru"}]}]}.\n'
+        "Her gün için dersler listesi oluştur. Metin:\n" + plan_text
+    )
+    raw = generate_text(prompt).strip()
+    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
+    result = json.loads(raw)
+    if not isinstance(result, dict) or not isinstance(result.get("program"), list):
+        raise ValueError("Yapay zekâ beklenen program biçimini döndürmedi.")
+    return result
+
+
+def render_program_image(program_data: dict):
     if plt is None:
-        return None
-    days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
-    fig, ax = plt.subplots(figsize=(10, 5))
+        raise RuntimeError("PNG üretmek için matplotlib gerekli: `pip install matplotlib`. ")
+    days = program_data.get("program", [])
+    if not days:
+        raise ValueError("Program verisi boş.")
+    rows = []
+    for day in days:
+        lessons = []
+        for lesson in day.get("dersler", []):
+            line = f"{lesson.get('ders', '')} ({lesson.get('sure', '')})"
+            if lesson.get("konu"):
+                line += f" — {lesson['konu']}"
+            if lesson.get("hedef"):
+                line += f"\nHedef: {lesson['hedef']}"
+            lessons.append(line)
+        rows.append([str(day.get("gun", "")), "\n\n".join(lessons) or "-"])
+    fig, ax = plt.subplots(figsize=(11, max(4, len(rows) * 1.25)))
     ax.axis("off")
-    table_data = [[day, "\n".join(schedule_data.get(day, ["Serbest Çalışma / Mola"]))] for day in days]
-    table = ax.table(cellText=table_data, colLabels=["Gün", "Çalışma Programı"], loc="center", cellLoc="left")
+    table = ax.table(cellText=rows, colLabels=["Gün", "Program"], loc="center", cellLoc="left", colWidths=[.2, .8])
     table.auto_set_font_size(False)
     table.set_fontsize(10)
-    table.scale(1.2, 1.8)
-    buf = io.BytesIO()
-    plt.tight_layout()
-    plt.savefig(buf, format="png", bbox_inches="tight", dpi=150)
-    buf.seek(0)
-    plt.close(fig)
-    return buf
-
-
-# --- YAN MENÜ (SIDEBAR) ---
-st.sidebar.title("🎓 YKS Koçu Pro")
-user_key = st.sidebar.text_input("Öğrenci Adı / ID:", value="öğrenci1")
-
-# YKS Geri Sayım
-st.sidebar.markdown("---")
-st.sidebar.subheader("⏳ YKS Geri Sayım")
-yks_date = date(2027, 6, 20)
-kalan_gun = (yks_date - date.today()).days
-if kalan_gun > 0:
-    st.sidebar.metric("YKS 2027'ye Kalan Gün", f"{kalan_gun} Gün")
-else:
-    st.sidebar.success("Sınav Günü Geldi! Başarılar!")
-
-# Günlük Soru Hedef Takibi
-st.sidebar.markdown("---")
-st.sidebar.subheader("📝 Günlük Soru Hedefi")
-if "toplam_soru" not in st.session_state:
-    st.session_state.toplam_soru = 0
-
-gunluk_hedef = st.sidebar.number_input("Günlük Hedef Soru Sayısı:", value=200, step=25)
-eklenen_soru = st.sidebar.number_input("Çözülen Soru Ekleyin:", min_value=0, step=10, value=0)
-
-if st.sidebar.button("Sayıyı Ekle"):
-    st.session_state.toplam_soru += eklenen_soru
-    st.sidebar.success(f"Güncel Toplam: {st.session_state.toplam_soru} Soru")
-
-hedef_yuzde = min(1.0, st.session_state.toplam_soru / max(1, gunluk_hedef))
-st.sidebar.progress(hedef_yuzde, text=f"Hedef Tamamlama: %{int(hedef_yuzde*100)}")
-
-st.sidebar.markdown("---")
-st.sidebar.info("💡 **İpucu:** Yapamadığınız soruları 'Hata Defteri' sekmesine kaydederek periyodik olarak tekrar edin.")
-
-
-# --- ANA SAYFA METRİKLERİ ---
-col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-col_m1.metric("📌 Öğrenci Profil", user_key.capitalize())
-col_m2.metric("💬 Koçluk Mesajları", f"{len(st.session_state.get('messages', []))} Mesaj")
-col_m3.metric("✏️ Çözülen Soru", f"{st.session_state.toplam_soru} / {gunluk_hedef}")
-col_m4.metric("🎯 Hedef Derece", "Top 10K")
-
-st.markdown("---")
-
-# --- ANA TAB YAPISI (GENİŞLETİLMİŞ 10 MODÜL) ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-    "💬 Yapay Zeka Koç", 
-    "📸 Görsel Soru Çözücü",
-    "📅 Çalışma Programı", 
-    "🔀 Formül & Bilgi Kartları",
-    "🏛️ YÖK Atlas Hedef Robotu",
-    "📊 ÖSYM Trend Analizi",
-    "📋 Görev Listesi (To-Do)",
-    "📕 Hata Defteri & Analiz",
-    "🧮 YKS Puan Hesapla",
-    "⏱️ Pomodoro & Lo-Fi"
-])
-
-
-# --- TAB 1: YAPAY ZEKA KOÇ ---
-with tab1:
-    st.header("YKS Koçunuz ile Sohbet Edin")
-    st.caption("Netleriniz, ders çalışma taktikleri ve motivasyon için sorularınızı sorun.")
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Merhaba! Ben YKS Rehber Koçunuz. Bugün hangi ders veya konu üzerinde strateji belirlemek istersin?"}
-        ]
-
-    for msg in st.session_state.messages:
-        st.chat_message(msg["role"]).write(msg["content"])
-
-    prompt = st.chat_input("Mesajınızı veya sorunuzu yazın...")
-
-    if prompt:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.chat_message("user").write(prompt)
-
-        if configure_gemini():
-            model = get_model()
-            hafiza_ozeti = build_memory_context(user_key)
-
-            search_context = ""
-            if any(w in prompt.lower() for w in ["tarih", "baraj", "kılavuz", "ösym", "kaç gün", "müfredat"]):
-                search_results = web_search_duckduckgo(f"YKS {prompt}")
-                if search_results:
-                    search_context = "\nWeb Arama Sonuçları:\n" + "\n".join([f"- {r['title']}: {r['snippet']}" for r in search_results])
-
-            system_instruction = (
-                "Sen uzman bir YKS rehberlik koçusun. Öğrenciye motive edici, sistemli, net odaklı ve pedagojik tavsiyeler ver. "
-                f"\n\n{hafiza_ozeti}\n{search_context}"
-            )
-
-            with st.chat_message("assistant"):
-                with st.spinner("Koçunuz yanıt hazırlıyor..."):
-                    try:
-                        response = model.generate_content(f"{system_instruction}\n\nÖğrenci: {prompt}")
-                        answer = response.text
-                        st.write(answer)
-                        st.session_state.messages.append({"role": "assistant", "content": answer})
-
-                        save_memory_record(user_key, {
-                            "tarih": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                            "icerik": f"Soru: {prompt} | Yanıt Özet: {answer[:120]}..."
-                        })
-                    except Exception as err:
-                        st.error(f"Bir hata oluştu: {err}")
+    table.scale(1, 2.5)
+    for (row, _), cell in table.get_celld().items():
+        cell.set_text_props(wrap=True, va="center")
+        if row == 0:
+            cell.set_facecolor("#334e8c")
+            cell.set_text_props(color="white", weight="bold", ha="center")
         else:
-            st.warning("Lütfen `.streamlit/secrets.toml` dosyasına `GEMINI_API_KEY` ekleyin.")
+            cell.set_facecolor("#f3f6fb" if row % 2 else "white")
+            cell.set_edgecolor("#dbe3ef")
+    ax.set_title("Haftalık Çalışma Programı", fontsize=14, weight="bold", pad=14)
+    fig.tight_layout()
+    output = io.BytesIO()
+    fig.savefig(output, format="png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+    output.seek(0)
+    return output
 
 
-# --- TAB 2: GÖRSEL SORU ÇÖZÜCÜ ---
-with tab2:
-    st.header("📸 Yapay Zeka ile Yapamadığın Soruyu Çözdür")
-    st.write("Yapamadığınız sorunun fotoğrafını yükleyin, yapay zeka adım adım açıklasın.")
-
-    uploaded_file = st.file_uploader("Soru Görseli Yükleyin (JPG, PNG)", type=["jpg", "jpeg", "png"])
-    user_question = st.text_input("Sorunuzla ilgili eklemek istediğiniz not:", "Bu sorunun adım adım çözümünü ve cevabını açıklar mısın?")
-
-    if uploaded_file and st.button("Soruyu Analiz Et & Çöz ✨"):
-        if configure_gemini() and Image is not None:
-            try:
-                img = Image.open(uploaded_file)
-                st.image(img, caption="Yüklenen Soru", width=380)
-
-                model = get_model()
-                with st.spinner("Soru inceleniyor ve çözüm adımları hazırlanıyor..."):
-                    response = model.generate_content([user_question, img])
-                    st.markdown("### 📝 Çözüm ve Açıklama:")
-                    st.write(response.text)
-            except Exception as e:
-                st.error(f"Görsel işlenirken bir hata oluştu: {e}")
-        elif Image is None:
-            st.error("Pillow kütüphanesi eksik. `pip install pillow` kurun.")
+def show_program_image(plan_text: str, key: str) -> None:
+    try:
+        with st.spinner("Program görselleştiriliyor..."):
+            image = render_program_image(generate_structured_plan(plan_text))
+        st.image(image, caption="Haftalık program", use_container_width=True)
+        st.download_button("PNG olarak indir", image.getvalue(), "yks_programi.png", "image/png", key=f"download_{key}")
+    except Exception as exc:
+        st.error(f"Görsel oluşturulamadı: {exc}")
 
 
-# --- TAB 3: ÇALIŞMA PROGRAMI ---
-with tab3:
-    st.header("📅 Haftalık Çalışma Programı Oluşturucu")
-    c1, c2 = st.columns(2)
-    with c1:
-        alani = st.selectbox("Alanınız:", ["Sayısal", "Eşit Ağırlık", "Sözel", "Dil"])
-        gunluk_saat = st.slider("Günde Kaç Saat Çalışabilirsiniz?", 1, 12, 5)
-    with c2:
-        hedef = st.text_input("Öncelikli Hedef / Eksik Konular:", "Matematik LTI, Fizik Dalgalar, Paragraf")
+def main():
+    st.title("📘 Kagan'in Yapay Zekâ YKS Koçu")
+    st.caption("JARVIS · YKS koçu · çalışma takipçisi")
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = None
 
-    if st.button("Program Oluştur ✨"):
-        if configure_gemini():
-            model = get_model()
-            prog_prompt = (
-                f"Alan: {alani}, Günlük Çalışma Süresi: {gunluk_saat} saat. "
-                f"Öncelikli konular: {hedef}. "
-                "Pazartesi'den Pazar'a kadar olan günleri içeren JSON formatında bir program üret. "
-                "Format sadece şu şekilde olsun: {\"Pazartesi\": [\"...\"], \"Salı\": [\"...\"], ...}"
-            )
-            with st.spinner("Program hazırlanıyor..."):
-                try:
-                    res = model.generate_content(prog_prompt)
-                    clean_json = re.search(r"\{.*\}", res.text, re.DOTALL)
-                    if clean_json:
-                        schedule_dict = json.loads(clean_json.group())
-                        st.json(schedule_dict)
-
-                        img_buf = generate_schedule_image(schedule_dict)
-                        if img_buf:
-                            st.image(img_buf, caption="Haftalık Görsel Programınız")
-                            st.download_button("Programı İndir (PNG)", data=img_buf, file_name="yks_program.png", mime="image/png")
+    if st.session_state.user_id is None:
+        login_tab, register_tab = st.tabs(["Giriş", "Hesap oluştur"])
+        with login_tab:
+            with st.form("login_form"):
+                username = st.text_input("Kullanıcı adı")
+                password = st.text_input("Parola", type="password")
+                login = st.form_submit_button("Giriş yap", use_container_width=True)
+            if login:
+                user_id = authenticate(username, password)
+                if user_id is None:
+                    st.error("Kullanıcı adı veya parola hatalı.")
+                else:
+                    st.session_state.user_id = user_id
+                    st.session_state.username = username.strip()
+                    st.rerun()
+        with register_tab:
+            with st.form("register_form"):
+                new_username = st.text_input("Kullanıcı adı", key="register_username")
+                new_password = st.text_input("Parola (en az 10 karakter)", type="password", key="register_password")
+                confirm_password = st.text_input("Parolayı tekrar yazın", type="password")
+                register = st.form_submit_button("Hesap oluştur", use_container_width=True)
+            if register:
+                if new_password != confirm_password:
+                    st.error("Parolalar eşleşmiyor.")
+                else:
+                    user_id, error = create_account(new_username, new_password)
+                    if error:
+                        st.error(error)
                     else:
-                        st.write(res.text)
-                except Exception as e:
-                    st.error(f"Hata oluştu: {e}")
+                        st.session_state.user_id = user_id
+                        st.session_state.username = new_username.strip()
+                        st.rerun()
+        st.caption("Hesap parolaları SQLite veritabanında PBKDF2 ile özetlenerek saklanır.")
+        st.stop()
+
+    user_id = st.session_state.user_id
+    api_ready = configure_gemini()
+    with st.sidebar:
+        st.header(f"👤 {st.session_state.get('username', 'Kullanıcı')}")
+        st.button("Çıkış yap", use_container_width=True, on_click=logout_user)
+        st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
+                           file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
+                           mime="application/json", use_container_width=True)
+        st.divider()
+        st.header("🧠 Durum")
+        st.success("Gemini API hazır") if api_ready else st.error("GEMINI_API_KEY bulunamadı")
+
+    if not api_ready:
+        st.warning("Gemini API hazır değil. Kayıtlı veriler, notlar ve hesap makinesi kullanılabilir; AI özellikleri API anahtarı gerektirir.")
+
+    records = load_memory(user_id)
+    with st.sidebar:
+        st.metric("📂 Hafıza kaydı", len(records))
+        if records:
+            with st.expander("Son kayıtlar"):
+                for item in records[-6:]:
+                    st.write(f"• {item.get('type')} — {item.get('title')}")
+
+    q_tab, p_tab, progress_tab, r_tab, m_tab, j_tab = st.tabs(
+        ["📝 Soru Analizi", "📅 Program", "📈 İlerleme", "🔗 Kaynak", "🗂️ Hafıza", "🤖 JARVIS Araçları"]
+    )
+    with q_tab:
+        st.subheader("Hatalı soru fotoğrafı")
+        uploaded = st.file_uploader("Sorunun fotoğrafını yükleyin", type=["png", "jpg", "jpeg"], key="question_image")
+        if uploaded:
+            st.image(uploaded, caption="Yüklenen soru", use_container_width=True)
+        if st.button("🔍 Soruyu analiz et ve hafızaya al", use_container_width=True):
+            if not uploaded:
+                st.warning("Önce bir soru fotoğrafı yükleyin.")
+            else:
+                try:
+                    with st.spinner("Sorunuz inceleniyor..."):
+                        analysis = analyze_image(uploaded)
+                    st.session_state.last_analysis = analysis
+                    save_memory(user_id, "soru_analizi", analysis, uploaded.name)
+                except Exception as exc:
+                    st.error(f"Soru analiz edilemedi: {exc}")
+        if st.session_state.get("last_analysis"):
+            st.markdown(st.session_state.last_analysis)
+
+    with p_tab:
+        st.subheader("Çalışma programı")
+        mode = st.radio("İşlem", ["Yapay zekâya program hazırlat", "Mevcut programımı kaydet"], horizontal=True)
+        if mode.startswith("Yapay"):
+            status = st.text_area("Hedefleriniz, günlük çalışma süreniz ve zorlandığınız dersler", height=130,
+                                  placeholder="Örn: Sayısal öğrencisiyim, günde 4 saat çalışabilirim...")
+            if st.button("🚀 Bana özel program hazırla", use_container_width=True):
+                if not status.strip():
+                    st.warning("Önce durumunuzu ve hedefinizi yazın.")
+                else:
+                    try:
+                        prompt = ("Öğrencinin durumu:\n" + status + "\n\nHafıza:\n" + memory_to_text(records) +
+                                  "\n\nUygulanabilir 7 günlük YKS çalışma programı hazırla. Her gün ders, süre, konu ve ölçülebilir mini hedef olsun. "
+                                  "Dengeli mola ve tekrar zamanları ekle; gerçekçi olmayan yoğunluk önermem.")
+                        with st.spinner("Program hazırlanıyor..."):
+                            plan = generate_text(prompt)
+                        st.session_state.last_ai_plan = plan
+                        save_memory(user_id, "calisma_programi", plan, "Yapay zekâ programı")
+                    except Exception as exc:
+                        st.error(f"Program hazırlanamadı: {exc}")
+            if st.session_state.get("last_ai_plan"):
+                st.markdown(st.session_state.last_ai_plan)
+                if st.button("📊 Program görselini oluştur", key="image_ai", use_container_width=True):
+                    show_program_image(st.session_state.last_ai_plan, "ai")
+        else:
+            plan = st.text_area("Haftalık planınızı yazın", height=160, placeholder="Pazartesi: Matematik 2 saat...")
+            if st.button("💾 Programımı hafızaya kaydet", use_container_width=True):
+                if not plan.strip():
+                    st.warning("Önce programınızı yazın.")
+                else:
+                    save_memory(user_id, "calisma_programi", plan, "Mevcut program")
+                    st.session_state.last_manual_plan = plan
+                    st.success("Program hafızaya kaydedildi.")
+            if st.session_state.get("last_manual_plan"):
+                if st.button("📊 Program görselini oluştur", key="image_manual", use_container_width=True):
+                    show_program_image(st.session_state.last_manual_plan, "manual")
+
+    with progress_tab:
+        st.subheader("Çalışma ve deneme takibi")
+        programs = [row for row in load_memory(user_id) if row.get("type") == "calisma_programi"]
+        if programs:
+            chosen = st.selectbox("Görev listesine aktarılacak program", programs,
+                                  format_func=lambda item: f"{item.get('title')} · {item.get('created_at')}",
+                                  key="program_for_tasks")
+            if st.button("Programı haftalık görevlere dönüştür", key="make_tasks"):
+                try:
+                    structured = generate_structured_plan(chosen["content"])
+                    tasks = []
+                    day_names = ["pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi", "pazar"]
+                    today_index = date.today().weekday()
+                    for day_index, day in enumerate(structured.get("program", [])[:7]):
+                        day_label = str(day.get("gun", ""))
+                        normalized_day = day_label.casefold().strip()
+                        named_index = next((i for i, name in enumerate(day_names) if name == normalized_day), None)
+                        offset = (named_index - today_index) % 7 if named_index is not None else day_index
+                        task_date = (date.today() + timedelta(days=offset)).isoformat()
+                        for lesson in day.get("dersler", []):
+                            tasks.append({"id": uuid.uuid4().hex[:10], "date": task_date,
+                                          "day": day_label, "subject": lesson.get("ders", "Ders"),
+                                          "topic": lesson.get("konu", ""), "target": lesson.get("hedef", ""), "done": False})
+                    if not tasks:
+                        st.warning("Programdan görev çıkarılamadı.")
+                    else:
+                        write_user_json(user_id, "study_tasks", tasks)
+                        st.success(f"{len(tasks)} görev oluşturuldu.")
+                        st.rerun()
+                except Exception as exc:
+                    st.error(f"Program görevlere dönüştürülemedi: {exc}")
+        else:
+            st.info("Önce Program sekmesinden bir program kaydedin.")
+
+        tasks = read_user_json(user_id, "study_tasks", [])
+        if tasks:
+            completed = sum(bool(task.get("done")) for task in tasks)
+            st.progress(completed / max(1, len(tasks)), text=f"Tamamlanan görevler: {completed}/{len(tasks)}")
+            today_tasks = [task for task in tasks if task.get("date") == date.today().isoformat()]
+            st.markdown("**Bugünün görevleri**")
+            for task in today_tasks:
+                label = " · ".join(part for part in [task.get("subject", "Ders"), task.get("topic", ""), task.get("target", "")] if part)
+                state = st.checkbox(label, value=bool(task.get("done")), key=f"task_{task['id']}")
+                if state != bool(task.get("done")):
+                    for item in tasks:
+                        if item.get("id") == task["id"]:
+                            item["done"] = state
+                    write_user_json(user_id, "study_tasks", tasks)
+                    st.rerun()
+            with st.expander("Haftanın diğer görevleri"):
+                for task in tasks:
+                    if task.get("date") != date.today().isoformat():
+                        label = " · ".join(part for part in [task.get("date", ""), task.get("subject", "Ders"),
+                                                              task.get("topic", ""), task.get("target", "")] if part)
+                        state = st.checkbox(label, value=bool(task.get("done")), key=f"task_{task['id']}")
+                        if state != bool(task.get("done")):
+                            for item in tasks:
+                                if item.get("id") == task["id"]:
+                                    item["done"] = state
+                            write_user_json(user_id, "study_tasks", tasks)
+                            st.rerun()
+
+        st.divider()
+        st.markdown("**Deneme sonuçları**")
+        with st.form("exam_result_form"):
+            exam_date = st.date_input("Deneme tarihi", value=date.today())
+            exam_label = st.text_input("Deneme adı", placeholder="TYT denemesi")
+            a, b, c, d = st.columns(4)
+            net_turkish = a.number_input("Türkçe neti", min_value=0.0, max_value=40.0, step=0.25)
+            net_math = b.number_input("Matematik neti", min_value=0.0, max_value=40.0, step=0.25)
+            net_social = c.number_input("Sosyal neti", min_value=0.0, max_value=20.0, step=0.25)
+            net_science = d.number_input("Fen neti", min_value=0.0, max_value=20.0, step=0.25)
+            add_exam = st.form_submit_button("Denemeyi kaydet")
+        if add_exam:
+            results = read_user_json(user_id, "exam_results", [])
+            results.append({"date": exam_date.isoformat(), "name": exam_label.strip() or "Deneme",
+                            "Türkçe": net_turkish, "Matematik": net_math, "Sosyal": net_social, "Fen": net_science,
+                            "Toplam": net_turkish + net_math + net_social + net_science})
+            write_user_json(user_id, "exam_results", results)
+            st.success("Deneme sonucu kaydedildi.")
+            st.rerun()
+        results = read_user_json(user_id, "exam_results", [])
+        if results:
+            try:
+                import pandas as pd
+                frame = pd.DataFrame(results).sort_values("date")
+                st.line_chart(frame.set_index("date")[["Türkçe", "Matematik", "Sosyal", "Fen", "Toplam"]])
+                st.dataframe(frame.iloc[::-1], use_container_width=True, hide_index=True)
+                if st.button("Deneme kayıtlarını temizle", key="clear_exam_results"):
+                    write_user_json(user_id, "exam_results", [])
+                    st.rerun()
+            except ImportError:
+                st.dataframe(results, use_container_width=True)
+
+    with r_tab:
+        st.subheader("Ders notu / kaynak bağlantısı")
+        link = st.text_input("Web bağlantısı", placeholder="https://...")
+        topic = st.text_input("Konu", placeholder="Örn: Fonksiyonlar")
+        read_page = st.checkbox("Sayfa metnini okuyup hafızaya ekle", value=True)
+        make_summary = st.checkbox("AI ile kısa özet de oluştur", value=True)
+        pdf_file = st.file_uploader("PDF ders notu yükle (isteğe bağlı)", type=["pdf"], key="resource_pdf")
+        if pdf_file and st.button("📑 PDF'i özetle ve hafızaya kaydet", key="summarize_pdf"):
+            try:
+                from pypdf import PdfReader
+                pdf_reader = PdfReader(io.BytesIO(pdf_file.getvalue()))
+                pdf_text = "\n".join((page.extract_text() or "") for page in pdf_reader.pages)[:12000]
+                if not pdf_text.strip():
+                    st.warning("PDF'de seçilebilir metin yok. Taranmış PDF için OCR gerekir.")
+                else:
+                    with st.spinner("PDF özetleniyor..."):
+                        summary = summarize_resource(pdf_file.name, pdf_text) if make_summary else pdf_text
+                    save_memory(user_id, "kaynak_pdf", f"Dosya: {pdf_file.name}\n\n{summary}", topic or pdf_file.name)
+                    st.session_state.last_resource_summary = summary
+                    st.success("PDF ve özeti hafızaya eklendi.")
+            except ImportError:
+                st.error("PDF okumak için pypdf yükleyin: pip install pypdf")
+            except Exception as exc:
+                st.error(f"PDF işlenemedi: {exc}")
+        if st.session_state.get("last_resource_summary"):
+            with st.expander("Son kaynak özeti"):
+                st.markdown(st.session_state.last_resource_summary)
+        if st.button("📥 Kaynağı hafızaya ekle", use_container_width=True):
+            if not link.strip() or not topic.strip():
+                st.warning("Bağlantı ve konu alanlarını doldurun.")
+            elif read_page:
+                with st.spinner("Sayfa okunuyor..."):
+                    scraped, error = scrape_link(link)
+                if error:
+                    st.error(error)
+                else:
+                    content = scraped["content"]
+                    if make_summary:
+                        with st.spinner("Kaynak özetleniyor..."):
+                            content = summarize_resource(scraped["title"], content)
+                        st.session_state.last_resource_summary = content
+                    save_memory(user_id, "kaynak_linki", f"URL: {link}\nBaşlık: {scraped['title']}\n\n{content}", topic)
+                    st.success("Kaynak içeriği hafızaya eklendi.")
+            else:
+                save_memory(user_id, "kaynak_linki", link.strip(), topic)
+                st.success("Kaynak bağlantısı hafızaya eklendi.")
+
+    with m_tab:
+        st.subheader("Kayıtlı hafıza")
+        records = load_memory(user_id)
+        if not records:
+            st.info("Henüz hafıza kaydı yok.")
+        for index, record in enumerate(reversed(records[-30:])):
+            with st.expander(f"{record.get('type', 'Kayıt')} · {record.get('title', 'Başlıksız')}"):
+                st.caption(record.get("created_at", "Tarih yok"))
+                st.write(record.get("content", ""))
+                left, right = st.columns(2)
+                if record.get("type") == "calisma_programi" and left.button("📊 Görsel oluştur", key=f"memory_img_{index}"):
+                    show_program_image(record.get("content", ""), f"memory_{index}")
+                if right.button("🗑️ Kaydı sil", key=f"delete_{index}"):
+                    delete_memory_record(user_id, record.get("id", ""))
+                    st.rerun()
+
+    with j_tab:
+        st.subheader("JARVIS notları ve hatırlatıcıları")
+        note_text = st.text_area("Hızlı not", placeholder="Daha sonra tekrar edeceğim konu...", key="jarvis_note")
+        if st.button("📝 Notu kaydet", key="save_jarvis_note"):
+            if note_text.strip():
+                notes = read_user_json(user_id, "notes", [])
+                notes.append({"id": uuid.uuid4().hex[:12], "created_at": datetime.now().astimezone().isoformat(timespec="minutes"),
+                              "text": note_text.strip()})
+                write_user_json(user_id, "notes", notes)
+                st.success("Not kaydedildi.")
+                st.rerun()
+            else:
+                st.warning("Kaydetmek için not yazın.")
+
+        saved_notes = read_user_json(user_id, "notes", [])
+        search_note = st.text_input("Notlarda ara", key="search_jarvis_note").strip().casefold()
+        visible_notes = [note for note in saved_notes if search_note in note.get("text", "").casefold()]
+        for note in reversed(visible_notes[-20:]):
+            col_note, col_delete_note = st.columns([5, 1])
+            col_note.caption(note.get("created_at", ""))
+            col_note.write(note.get("text", ""))
+            if col_delete_note.button("Sil", key=f"del_note_{note.get('id')}"):
+                write_user_json(user_id, "notes", [n for n in saved_notes if n.get("id") != note.get("id")])
+                st.rerun()
+
+        st.divider()
+        st.markdown("**Hatırlatıcı ekle**")
+        remind_date = st.date_input("Tarih", value=date.today(), key="jarvis_reminder_date")
+        remind_time = st.time_input("Saat", value=(datetime.now() + timedelta(hours=1)).time().replace(second=0, microsecond=0), key="jarvis_reminder_time")
+        remind_text = st.text_input("Neyi hatırlatayım?", key="jarvis_reminder_text")
+        if st.button("⏰ Hatırlatıcı kur", key="add_jarvis_reminder"):
+            due = datetime.combine(remind_date, remind_time).astimezone()
+            if not remind_text.strip():
+                st.warning("Hatırlatma metnini yazın.")
+            elif due <= datetime.now().astimezone():
+                st.warning("Hatırlatma zamanı gelecekte olmalı.")
+            else:
+                reminders = read_user_json(user_id, "reminders", [])
+                reminders.append({"id": uuid.uuid4().hex[:12], "due_at": due.isoformat(), "text": remind_text.strip(), "done": False})
+                write_user_json(user_id, "reminders", reminders)
+                st.success("Hatırlatıcı kuruldu. Uygulama açıkken bu sekmeye tekrar geldiğinizde zamanı kontrol edilir.")
+                st.rerun()
+
+        render_reminders(user_id)
+
+        st.divider()
+        st.markdown("**Ders rehberleri**")
+        st.write("Matematik: Rehber Matematik / Mert Hoca · Fizik: VIP Fizik · Kimya: Görkem Şahin · "
+                 "Biyoloji: Dr. Biyoloji · Türkçe: Rüştü Hoca · Tarih: Benim Hocam · Coğrafya: Coğrafyanın Kodları")
+
+    st.divider()
+    st.header("💬 Koçunla konuş")
+    chats = read_user_json(user_id, "chats", [])
+    if not chats:
+        chats = [{"id": uuid.uuid4().hex[:12], "title": "Yeni sohbet", "messages": []}]
+        write_user_json(user_id, "chats", chats)
+    chat_ids = [chat["id"] for chat in chats]
+    if st.session_state.get("active_chat") not in chat_ids:
+        st.session_state.active_chat = chat_ids[-1]
+    chat_left, chat_mid, chat_right = st.columns([3, 1, 1])
+    active_chat_id = chat_left.selectbox("Sohbet", chat_ids,
+                                        index=chat_ids.index(st.session_state.active_chat),
+                                        format_func=lambda item_id: next((c["title"] for c in chats if c["id"] == item_id), "Sohbet"),
+                                        key="chat_selector")
+    st.session_state.active_chat = active_chat_id
+    active_chat = next(chat for chat in chats if chat["id"] == active_chat_id)
+    chat_mid.button("➕ Yeni", key="new_chat", on_click=create_new_chat, args=(user_id,))
+    if chat_right.button("🧹 Temizle", key="clear_chat"):
+        active_chat["messages"] = []
+        active_chat["title"] = "Yeni sohbet"
+        write_user_json(user_id, "chats", chats)
+        st.rerun()
+    if active_chat["messages"]:
+        st.download_button("Sohbeti JSON indir", json.dumps(active_chat, ensure_ascii=False, indent=2),
+                           file_name="jarvis_sohbet.json", mime="application/json", key="export_chat")
+    messages = active_chat["messages"]
+    for message in messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    voice_input = None
+    voice_speed = st.slider("Ses hızı", min_value=0.75, max_value=1.25, value=1.0, step=0.05, key="tts_speed")
+    if hasattr(st, "audio_input"):
+        recorded_audio = st.audio_input("🎙️ İstersen mesajını konuşarak kaydet")
+        if recorded_audio:
+            st.audio(recorded_audio, format="audio/wav")
+        if recorded_audio and st.button("Kaydı yazıya çevir", key="transcribe_jarvis_audio"):
+            try:
+                with st.spinner("Ses çözümleniyor..."):
+                    transcript = transcribe_audio(recorded_audio)
+                st.session_state.jarvis_transcript = transcript
+            except Exception as exc:
+                st.error(f"Ses çözümlenemedi: {exc}")
+        if st.session_state.get("jarvis_transcript"):
+            st.session_state.jarvis_transcript = st.text_area("Göndermeden önce metni düzenleyin", value=st.session_state.jarvis_transcript,
+                                                              key="editable_voice_transcript")
+            if st.button("Bu mesajı gönder", key="send_voice_message"):
+                voice_input = st.session_state.jarvis_transcript
+                st.session_state.jarvis_transcript = ""
+    user_input = voice_input or st.chat_input("Koçuna bir şey sor...")
+    if user_input:
+        messages.append({"role": "user", "content": user_input})
+        if active_chat["title"] == "Yeni sohbet":
+            active_chat["title"] = user_input[:36] + ("…" if len(user_input) > 36 else "")
+        write_user_json(user_id, "chats", chats)
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        with st.chat_message("assistant"):
+            try:
+                normalized = user_input.casefold().strip()
+                if normalized.startswith("hesapla "):
+                    answer = safe_calculate(user_input[8:].strip())
+                elif normalized.startswith("not al "):
+                    notes = read_user_json(user_id, "notes", [])
+                    notes.append({"id": uuid.uuid4().hex[:12], "created_at": datetime.now().astimezone().isoformat(timespec="minutes"),
+                                  "text": user_input[7:].strip()})
+                    write_user_json(user_id, "notes", notes)
+                    answer = "Notunu kaydettim."
+                elif any(word in normalized for word in ("hocalar", "ders kadrosu", "hangi hoca")):
+                    answer = "Matematik: Rehber Matematik / Mert Hoca; Fizik: VIP Fizik; Kimya: Görkem Şahin; " \
+                             "Biyoloji: Dr. Biyoloji; Türkçe: Rüştü Hoca; Tarih: Benim Hocam; Coğrafya: Coğrafyanın Kodları."
+                else:
+                    facts = read_user_json(user_id, "facts", [])
+                    if re.search(r"benim adım|hedefim|favorim|seviyorum", normalized):
+                        facts.append(user_input)
+                        write_user_json(user_id, "facts", facts[-30:])
+                    prior = "\n".join(f"{m['role']}: {m['content']}" for m in messages[-9:-1])
+                    prompt = ("Sen JARVIS adlı, YKS öğrencisine kısa, somut ve motive edici öneriler veren kişisel koçsun. "
+                              "Kullanıcıya samimi ve net Türkçe ile, gerekirse 'efendim' diye hitap et. "
+                              "Belirsiz bilgiyi kesinmiş gibi sunma; uygulanabilir öneriler ver. "
+                              "Ders rehberleri: Matematik Rehber Matematik/Mert Hoca, Fizik VIP Fizik, Kimya Görkem Şahin, "
+                              "Biyoloji Dr. Biyoloji, Türkçe Rüştü Hoca, Tarih Benim Hocam, Coğrafya Coğrafyanın Kodları.\n"
+                              f"Öğrenci bilgileri: {'; '.join(facts[-10:])}\n"
+                              f"YKS hafızası:\n{memory_to_text(load_memory(user_id))}\n"
+                              f"Önceki konuşma:\n{prior}\n\nKullanıcının mesajı: {user_input}")
+                    with st.spinner("JARVIS düşünüyor..."):
+                        answer = generate_text(prompt)
+            except Exception as exc:
+                answer = f"Yanıt oluşturulamadı: {exc}"
+            st.markdown(answer)
+        messages.append({"role": "assistant", "content": answer})
+        write_user_json(user_id, "chats", chats)
+
+    if messages:
+        if st.button("🔊 Son yanıtı seslendir", key="speak_last_answer"):
+            try:
+                with st.spinner("Ses hazırlanıyor..."):
+                    audio_bytes = speak_text(messages[-1]["content"], speed=voice_speed)
+                st.audio(audio_bytes, format="audio/mp3")
+            except Exception as exc:
+                st.error(f"Sesli yanıt oluşturulamadı: {exc}")
 
 
-# --- TAB 4: FORMÜL & BİLGİ KARTLARI (FLASHCARDS) ---
-with tab4:
-    st.header("🔀 Hızlı Tekrar: YKS Formül & Bilgi Kartları")
-    st.caption("Kartların üzerine tıklayarak veya değiştirerek hızlı konu tekrarı yapın.")
-
-    cards = [
-        {"ders": "Matematik", "soru": "Trigonometri: sin²(x) + cos²(x) kaçtır?", "cevap": "1"},
-        {"ders": "Fizik", "soru": "Newton'un 2. Hareket Yasası (Temel Yasa) nedir?", "cevap": "F = m * a"},
-        {"ders": "Kimya", "soru": "İdeal Gaz Denklemi formülü nedir?", "cevap": "P * V = n * R * T"},
-        {"ders": "Biyoloji", "soru": "Hücrenin enerji santralı hangi orgeldir?", "cevap": "Mitokondri"},
-        {"ders": "Türkçe", "soru": "Yaban romanının yazarı kimdir?", "cevap": "Yakup Kadri Karaosmanoğlu"}
-    ]
-
-    if "card_idx" not in st.session_state:
-        st.session_state.card_idx = 0
-
-    cur_card = cards[st.session_state.card_idx]
-    
-    st.info(f"**Ders:** {cur_card['ders']}")
-    st.subheader(f"📌 {cur_card['soru']}")
-
-    if st.button("Cevabı Göster 👁️"):
-        st.success(f"**Cevap:** {cur_card['cevap']}")
-
-    if st.button("Rastgele Kart Getir 🔀"):
-        st.session_state.card_idx = random.randint(0, len(cards) - 1)
-
-
-# --- TAB 5: YÖK ATLAS HEDEF ROBOTU ---
-with tab5:
-    st.header("🏛️ YÖK Atlas Hedef & Bölüm Robotu")
-    st.caption("Hedeflediğiniz üniversite ve bölümün tahmini net gereksinimlerini görün.")
-
-    bolumler = {
-        "Tıp Fakültesi (Devlet)": {"TYT": 102, "AYT": 72},
-        "Bilgisayar Mühendisliği (İTÜ/ODTÜ)": {"TYT": 105, "AYT": 75},
-        "Hukuk Fakültesi (Devlet)": {"TYT": 85, "AYT": 58},
-        "Diş Hekimliği": {"TYT": 95, "AYT": 65},
-        "Psikoloji (Devlet)": {"TYT": 80, "AYT": 50}
-    }
-
-    secilen_bolum = st.selectbox("Hedef Bölümünüzü Seçin:", list(bolumler.keys()))
-    req_data = bolumler[secilen_bolum]
-
-    r1, r2 = st.columns(2)
-    r1.metric("Gerekli TYT Neti", f"{req_data['TYT']} Net")
-    r2.metric("Gerekli AYT Neti", f"{req_data['AYT']} Net")
-
-
-# --- TAB 6: ÖSYM TREND ANALİZİ ---
-with tab6:
-    st.header("📊 ÖSYM Soru Dağılımı ve Trend Analizi")
-    st.caption("Son 5 yılda ÖSYM'nin en çok soru sorduğu kilit konular.")
-
-    if plt:
-        konular = ["Paragraf", "Problemler", "Trigonometri", "Türev/İnt.", "Elektrik", "Sistemler"]
-        soru_sayisi = [26, 12, 3, 6, 3, 4]
-
-        fig, ax = plt.subplots(figsize=(9, 4))
-        ax.barh(konular, soru_sayisi, color="#2563eb")
-        ax.set_xlabel("Ortalama Çıkan Soru Sayısı")
-        ax.set_title("TYT & AYT Kritik Konu Soru Ağırlığı")
-        ax.grid(True, linestyle="--", alpha=0.3)
-        st.pyplot(fig)
-
-
-# --- TAB 7: HAFTALIK GÖREV LİSTESİ (TO-DO) ---
-with tab7:
-    st.header("📋 Yapılacaklar & Görev Listesi")
-    
-    if "todo_list" not in st.session_state:
-        st.session_state.todo_list = [
-            {"gorev": "Matematik Türev 2 Test Çöz", "durum": False},
-            {"gorev": "Paragraf 30 Soru Çöz", "durum": True}
-        ]
-
-    with st.form("todo_form"):
-        y_gorev = st.text_input("Yeni Görev / Hedef Ekleyin:")
-        submit_todo = st.form_submit_button("Görev Ekle")
-        if submit_todo and y_gorev:
-            st.session_state.todo_list.append({"gorev": y_gorev, "durum": False})
-            st.success("Yeni görev eklendi!")
-
-    st.markdown("---")
-    for idx, item in enumerate(st.session_state.todo_list):
-        st.session_state.todo_list[idx]["durum"] = st.checkbox(
-            item["gorev"], value=item["durum"], key=f"todo_{idx}"
-        )
-
-
-# --- TAB 8: HATA DEFTERİ ---
-with tab8:
-    st.header("📕 Deneme Hata Defteri & Yanlış Analizi")
-    
-    if "hata_defteri" not in st.session_state:
-        st.session_state.hata_defteri = []
-
-    with st.form("hata_form"):
-        h_col1, h_col2 = st.columns(2)
-        h_ders = h_col1.selectbox("Ders:", ["Matematik", "Fizik", "Kimya", "Biyoloji", "Türkçe", "Tarih", "Coğrafya"])
-        h_neden = h_col2.selectbox("Hata Nedeni:", ["Bilgi Eksikliği", "Dikkat Hatası", "Süre Yetmedi", "Yanlış Yorumlama"])
-        h_konu = st.text_input("Soru Konusu / Detayı:", "Örn: Trigonometri Toplam-Fark Formülü")
-        submit_hata = st.form_submit_button("Hatayı Kaydet")
-
-        if submit_hata and h_konu:
-            st.session_state.hata_defteri.append({"Ders": h_ders, "Konu": h_konu, "Neden": h_neden, "Tarih": datetime.now().strftime("%d.%m.%Y")})
-            st.success("Hata defterinize eklendi!")
-
-    if st.session_state.hata_defteri:
-        st.table(st.session_state.hata_defteri)
-
-
-# --- TAB 9: YKS PUAN HESAPLAYICI ---
-with tab9:
-    st.header("🧮 YKS Tahmini Puan Hesaplama")
-    
-    col_t1, col_t2 = st.columns(2)
-    tyt_net = col_t1.number_input("Toplam TYT Netiniz", 0.0, 120.0, 75.0)
-    ayt_net = col_t2.number_input("Toplam AYT Netiniz", 0.0, 80.0, 45.0)
-
-    tyt_puan = 100 + (tyt_net * 3.3)
-    say_puan = 100 + (tyt_net * 1.3) + (ayt_net * 3.0)
-
-    res_col1, res_col2 = st.columns(2)
-    res_col1.metric("Tahmini TYT Puanı", f"{tyt_puan:.1f}")
-    res_col2.metric("Tahmini Sayısal Puanı", f"{say_puan:.1f}")
-
-
-# --- TAB 10: POMODORO & LO-FI DİNLENME ---
-with tab10:
-    st.header("⏱️ Pomodoro & Odaklanma Müzikleri")
-    p1, p2 = st.columns([1, 2])
-    with p1:
-        sure = st.number_input("Çalışma Süresi (Dakika):", value=25, min_value=1, max_value=90)
-        if st.button("Pomodoro Başlat"):
-            st.info(f"🎯 {sure} dakikalık odaklanma süresi başladı. Başarılar!")
-    with p2:
-        st.subheader("🔊 Odaklanma Sesleri (Lo-Fi)")
-        st.audio("https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3")
+if __name__ == "__main__":
+    main()
