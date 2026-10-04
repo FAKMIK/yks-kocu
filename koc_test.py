@@ -12,6 +12,7 @@ from contextlib import contextmanager
 import ipaddress
 import io
 import json
+import html
 import os
 import re
 import socket
@@ -51,19 +52,48 @@ st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
 
 st.markdown("""
 <style>
-:root { --ink:#172554; --brand:#334e8c; --soft:#f3f6fb; --line:#dbe3ef; }
-.main { color:var(--ink); font-family:'Segoe UI',Roboto,sans-serif; }
-h1,h2,h3 { color:var(--brand); font-weight:650; }
-.stButton button,.stDownloadButton button { border-radius:10px; font-weight:600; transition:.18s ease; }
-.stButton button { background:var(--brand); color:white; border:0; }
-.stButton button:hover { background:#253b70; color:white; transform:translateY(-1px); }
-.stTextInput input,.stTextArea textarea { border-radius:9px; border-color:var(--line); }
-[data-testid="stSidebar"] { background:#f7f9fc; }
-[data-testid="stMetric"] { background:white; border:1px solid var(--line); border-radius:12px; padding:12px; }
-.stTabs [data-baseweb="tab-list"] { gap:8px; }
-.stTabs [data-baseweb="tab"] { border-radius:8px 8px 0 0; }
-[data-testid="stChatMessage"] { border-radius:12px; }
-@media(max-width:650px) { .stTabs [data-baseweb="tab"] { padding:6px 9px; } }
+:root { --ink:#14233b; --muted:#68778e; --brand:#3858d6; --mint:#79e0bd; --gold:#ffce73; --line:#e4e9f1; --paper:#f5f7fb; }
+html, body, [data-testid="stAppViewContainer"] { background-color:var(--paper); background-image:radial-gradient(#2437550b .7px, transparent .7px); background-size:18px 18px; }
+[data-testid="stAppViewContainer"] .main { color:var(--ink); font-family:Inter,'Segoe UI',Roboto,sans-serif; }
+[data-testid="stMainBlockContainer"] { max-width:1320px; padding-top:1.8rem; padding-bottom:4rem; }
+h1,h2,h3 { color:var(--ink); font-weight:700; letter-spacing:-.025em; }
+h1 { font-size:2.15rem; } h2 { font-size:1.55rem; } h3 { font-size:1.15rem; }
+p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
+[data-testid="stSidebar"] { background:#14233b; border-right:1px solid #23334e; }
+[data-testid="stSidebar"] * { color:#e8eef9; }
+.side-brand { display:flex; align-items:center; gap:10px; margin:.3rem 0 1.35rem; font-weight:800; letter-spacing:.04em; color:#fff; }
+.side-mark { display:grid; place-items:center; width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg,#79e0bd,#9daeff); color:#14233b; font-weight:900; }
+[data-testid="stSidebar"] [data-testid="stMetric"] { background:#1c2d49; border-color:#314462; }
+[data-testid="stSidebar"] [data-testid="stMetricLabel"] p { color:#aab8ce; }
+.stButton button,.stDownloadButton button { min-height:2.65rem; border-radius:11px; font-weight:650; transition:transform .16s ease, box-shadow .16s ease, background .16s ease; }
+.stButton button { background:var(--brand); color:white; border:1px solid var(--brand); box-shadow:0 5px 14px #3858d622; }
+.stButton button:hover { background:#2947c3; color:white; border-color:#2947c3; transform:translateY(-1px); box-shadow:0 8px 20px #3858d633; }
+.stDownloadButton button { background:#e8edff; color:#2a45ae; border:1px solid #d7dfff; }
+.stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input { border-radius:10px; border-color:var(--line); background:white; }
+[data-testid="stMetric"] { background:white; border:1px solid var(--line); border-radius:15px; padding:15px 17px; box-shadow:0 3px 12px #23334e08; }
+[data-testid="stMetricLabel"] p { font-size:.8rem; font-weight:600; letter-spacing:.025em; }
+[data-testid="stMetricValue"] { color:var(--ink); font-weight:750; }
+[data-testid="stTabs"] [data-baseweb="tab-list"] { gap:7px; background:#e9edf5; padding:6px; border-radius:14px; }
+[data-testid="stTabs"] [data-baseweb="tab"] { height:42px; border-radius:10px; padding:0 15px; color:#5c6b83; font-weight:600; }
+[data-testid="stTabs"] [aria-selected="true"] { background:white; color:var(--brand); box-shadow:0 2px 8px #14233b12; }
+[data-testid="stExpander"] { background:white; border:1px solid var(--line); border-radius:12px; }
+[data-testid="stChatMessage"] { border:1px solid var(--line); border-radius:15px; background:white; padding:1rem 1.2rem; }
+[data-testid="stChatInput"] textarea { border-radius:15px; border-color:#d6deec; background:white; }
+.hero-card { position:relative; overflow:hidden; display:flex; align-items:center; justify-content:space-between; gap:1.5rem; min-height:245px; padding:2rem 2.4rem; margin:.25rem 0 1.35rem; border-radius:24px; color:white; background:linear-gradient(115deg,#152741 0%,#223f70 57%,#3959d5 100%); box-shadow:0 18px 45px #1d37602a; }
+.hero-card:after { content:''; position:absolute; width:280px; height:280px; border-radius:50%; right:16%; top:-190px; background:#79e0bd20; }
+.hero-copy { position:relative; z-index:1; max-width:620px; }
+.hero-eyebrow { color:#a9f1d8; text-transform:uppercase; font-size:.75rem; font-weight:750; letter-spacing:.15em; }
+.hero-card h1 { color:white; font-size:clamp(2rem,4vw,3rem); line-height:1.08; margin:.55rem 0 .8rem; }
+.hero-card p { color:#d0d9e9; font-size:1rem; max-width:520px; margin:0; }
+.hero-pill { display:inline-flex; margin-top:1.25rem; padding:.48rem .8rem; border:1px solid #ffffff35; border-radius:999px; background:#ffffff12; color:#f2f6ff; font-size:.8rem; }
+.hero-art { width:min(31%,300px); min-width:180px; position:relative; z-index:1; }
+.section-kicker { color:var(--brand); font-size:.72rem; font-weight:750; text-transform:uppercase; letter-spacing:.13em; margin-bottom:.35rem; }
+.soft-card { height:100%; padding:1.15rem 1.25rem; border:1px solid var(--line); border-radius:16px; background:white; box-shadow:0 4px 16px #1d2c4408; }
+.soft-card h3 { margin:.25rem 0 .4rem; } .soft-card p { margin:0; font-size:.91rem; line-height:1.55; }
+.mini-icon { display:inline-grid; place-items:center; width:38px; height:38px; border-radius:12px; background:#edf0ff; font-size:1.2rem; }
+.empty-state { border:1px dashed #ccd5e4; border-radius:16px; padding:1.3rem; color:var(--muted); background:#ffffffa6; }
+@media(max-width:760px) { [data-testid="stMainBlockContainer"] { padding:1rem 1rem 3rem; } .hero-card { min-height:200px; padding:1.5rem; border-radius:19px; } .hero-art { width:26%; min-width:100px; } .hero-card h1 { font-size:2rem; } [data-testid="stTabs"] [data-baseweb="tab"] { padding:0 9px; font-size:.82rem; } }
+@media(prefers-reduced-motion:reduce) { *, *:before, *:after { transition:none !important; scroll-behavior:auto !important; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -525,9 +555,103 @@ def show_program_image(plan_text: str, key: str) -> None:
         st.error(f"Görsel oluşturulamadı: {exc}")
 
 
+def render_dashboard(user_id: int, username: str) -> None:
+    tasks = read_user_json(user_id, "study_tasks", [])
+    focus_logs = read_user_json(user_id, "study_sessions", [])
+    exam_results = read_user_json(user_id, "exam_results", [])
+    records = load_memory(user_id)
+    today = date.today()
+    today_name = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][today.weekday()]
+    safe_name = html.escape(username, quote=True)
+    today_minutes = sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == today.isoformat())
+    today_focus_label = f"{today_minutes // 60} sa {today_minutes % 60:02d} dk" if today_minutes >= 60 else f"{today_minutes} dk"
+    task_count = len(tasks)
+    done_count = sum(bool(item.get("done")) for item in tasks)
+    completion = round(100 * done_count / task_count) if task_count else 0
+    latest_exam = max(exam_results, key=lambda item: item.get("date", ""), default=None)
+    latest_net = f"{latest_exam.get('Toplam', 0):g}" if latest_exam else "—"
+    resource_count = sum(item.get("type") in {"kaynak_linki", "kaynak_pdf"} for item in records)
+
+    st.markdown(f"""
+    <section class="hero-card">
+      <div class="hero-copy">
+        <div class="hero-eyebrow">JARVIS · KİŞİSEL YKS STÜDYOSU</div>
+        <h1>Selam {safe_name}.<br>Bugün hedeflerine bir adım daha.</h1>
+        <p>Planını sade tut, ilerlemeni gör ve sıradaki doğru işe odaklan. Küçük ama düzenli adımlar büyük fark yaratır.</p>
+        <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y} &nbsp;·&nbsp; Bugünün çalışma alanı</span>
+      </div>
+      <svg class="hero-art" viewBox="0 0 300 220" role="img" aria-label="Çalışma hedefi ve ilerleme çizimi">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ef0d0"/><stop offset="1" stop-color="#ffce73"/></linearGradient></defs>
+        <circle cx="167" cy="108" r="86" fill="#ffffff0d" stroke="#ffffff25"/>
+        <circle cx="167" cy="108" r="66" fill="#ffffff0a" stroke="#ffffff20"/>
+        <rect x="105" y="56" width="120" height="108" rx="18" fill="#f7f9ff"/>
+        <path d="M128 84h65M128 99h45" stroke="#cbd5e7" stroke-width="7" stroke-linecap="round"/>
+        <path d="M128 127l16 14 34-37" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="229" cy="54" r="14" fill="#ffce73"/><path d="M229 46v16M221 54h16" stroke="#20365d" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="90" cy="160" r="8" fill="#79e0bd"/><circle cx="243" cy="148" r="6" fill="#b8c7ff"/>
+      </svg>
+    </section>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="section-kicker">Bugün ve bu hafta</div>', unsafe_allow_html=True)
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Bugünkü odak", today_focus_label, help="Kaydettiğin çalışma oturumlarının toplamı")
+    k2.metric("Plan ilerlemesi", f"%{completion}", help=f"{done_count}/{task_count} görev tamamlandı")
+    k3.metric("Son deneme neti", latest_net, help=latest_exam.get("name", "Deneme") if latest_exam else "Henüz deneme sonucu eklenmedi")
+    k4.metric("Kaynak arşivin", str(resource_count), help="PDF ve bağlantı kaynakları")
+
+    left, right = st.columns([1.45, 1], gap="large")
+    with left:
+        st.markdown('<div class="section-kicker">Ritmini oluştur</div>', unsafe_allow_html=True)
+        st.subheader("Bu haftaki çalışma süren")
+        dates = [(today - timedelta(days=i)).isoformat() for i in reversed(range(7))]
+        focus_by_date = {d: sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == d) for d in dates}
+        labels = {d: f"{['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][date.fromisoformat(d).weekday()]} {date.fromisoformat(d).day}" for d in dates}
+        try:
+            import pandas as pd
+            focus_frame = pd.DataFrame([{"Gün": labels[d], "Dakika": focus_by_date[d]} for d in dates])
+            st.bar_chart(focus_frame, x="Gün", y="Dakika", color="#3858d6", height=230)
+        except ImportError:
+            st.info("Grafik için pandas paketini yükleyin.")
+        with st.form("focus_session_form", clear_on_submit=True):
+            st.markdown("**Çalışma oturumu ekle**")
+            f1, f2, f3 = st.columns([1.2, 1, 1])
+            subject = f1.selectbox("Ders", ["Matematik", "Türkçe", "Fizik", "Kimya", "Biyoloji", "Tarih", "Coğrafya", "Diğer"], key="focus_subject")
+            minutes = f2.number_input("Dakika", min_value=5, max_value=600, value=45, step=5, key="focus_minutes")
+            focus_day = f3.date_input("Tarih", value=today, key="focus_date")
+            note = st.text_input("Kısa not (isteğe bağlı)", placeholder="Paragraf denemesi, fonksiyon tekrarı…", key="focus_note")
+            submitted = st.form_submit_button("+ Oturumu kaydet", use_container_width=True)
+        if submitted:
+            focus_logs.append({"id": uuid.uuid4().hex[:10], "date": focus_day.isoformat(), "minutes": int(minutes),
+                               "subject": subject, "note": note.strip()})
+            write_user_json(user_id, "study_sessions", focus_logs)
+            st.success("Çalışma oturumu kaydedildi.")
+            st.rerun()
+
+    with right:
+        st.markdown('<div class="section-kicker">Sıradaki adım</div>', unsafe_allow_html=True)
+        st.subheader("Bugünün görevleri")
+        today_tasks = [item for item in tasks if item.get("date") == today.isoformat()]
+        if today_tasks:
+            for item in today_tasks[:5]:
+                label = " · ".join(part for part in [item.get("subject", "Ders"), item.get("topic", ""), item.get("target", "")] if part)
+                state = "✓" if item.get("done") else "○"
+                st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#3858d6'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
+            st.caption("Görevleri işaretlemek için İlerleme sekmesini aç.")
+        else:
+            st.markdown("<div class='empty-state'>Bugün için planlanmış görev yok. Programını ekleyip görev listesine dönüştürebilirsin.</div>", unsafe_allow_html=True)
+        st.markdown('<div class="section-kicker" style="margin-top:1.4rem">Son hareketler</div>', unsafe_allow_html=True)
+        if records:
+            for item in reversed(records[-4:]):
+                icon = {"soru_analizi": "🧩", "calisma_programi": "🗓️", "kaynak_linki": "🔗", "kaynak_pdf": "📄"}.get(item.get("type"), "✦")
+                st.markdown(f"<div style='padding:9px 2px;border-bottom:1px solid #e4e9f1'><span>{icon}</span> &nbsp;<b>{html.escape(item.get('title','Kayıt'))}</b><br><small style='color:#8290a4'>{html.escape(item.get('created_at',''))}</small></div>", unsafe_allow_html=True)
+        else:
+            st.caption("Kayıtların burada listelenecek.")
+
+
 def main():
-    st.title("📘 Kagan'in Yapay Zekâ YKS Koçu")
-    st.caption("JARVIS · YKS koçu · çalışma takipçisi")
+    st.title("JARVIS · YKS Çalışma Stüdyosu")
+    st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
     if "user_id" not in st.session_state:
         st.session_state.user_id = None
 
@@ -569,6 +693,7 @@ def main():
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
     with st.sidebar:
+        st.markdown('<div class="side-brand"><span class="side-mark">J</span><span>JARVIS <small style="display:block;color:#91a3bf;font-weight:500;letter-spacing:.12em">YKS STUDIO</small></span></div>', unsafe_allow_html=True)
         st.header(f"👤 {st.session_state.get('username', 'Kullanıcı')}")
         st.button("Çıkış yap", use_container_width=True, on_click=logout_user)
         st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
@@ -589,9 +714,11 @@ def main():
                 for item in records[-6:]:
                     st.write(f"• {item.get('type')} — {item.get('title')}")
 
-    q_tab, p_tab, progress_tab, r_tab, m_tab, j_tab = st.tabs(
-        ["📝 Soru Analizi", "📅 Program", "📈 İlerleme", "🔗 Kaynak", "🗂️ Hafıza", "🤖 JARVIS Araçları"]
+    dashboard_tab, q_tab, p_tab, progress_tab, r_tab, m_tab, j_tab = st.tabs(
+        ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme", "🔗 Kaynak", "🗂️ Hafıza", "🤖 JARVIS Araçları"]
     )
+    with dashboard_tab:
+        render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
     with q_tab:
         st.subheader("Hatalı soru fotoğrafı")
         uploaded = st.file_uploader("Sorunun fotoğrafını yükleyin", type=["png", "jpg", "jpeg"], key="question_image")
