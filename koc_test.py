@@ -63,6 +63,12 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 [data-testid="stSidebar"] * { color:#e8eef9; }
 .side-brand { display:flex; align-items:center; gap:10px; margin:.3rem 0 1.35rem; font-weight:800; letter-spacing:.04em; color:#fff; }
 .side-mark { display:grid; place-items:center; width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg,#79e0bd,#9daeff); color:#14233b; font-weight:900; }
+.side-nav-label { color:#8fa2bd; font-size:.68rem; font-weight:800; letter-spacing:.16em; margin:1.1rem 0 .45rem; }
+[data-testid="stSidebar"] [data-testid="stRadio"] label { padding:.62rem .72rem; border-radius:10px; transition:background .15s ease; }
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover { background:#ffffff0c; }
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background:#ffffff15; color:#fff; }
+[data-testid="stSidebar"] [data-testid="stRadio"] label p { color:inherit; font-weight:600; }
+[data-testid="stSidebar"] [role="radiogroup"] { gap:3px; }
 [data-testid="stSidebar"] [data-testid="stMetric"] { background:#1c2d49; border-color:#314462; }
 [data-testid="stSidebar"] [data-testid="stMetricLabel"] p { color:#aab8ce; }
 .stButton button,.stDownloadButton button { min-height:2.65rem; border-radius:11px; font-weight:650; transition:transform .16s ease, box-shadow .16s ease, background .16s ease; }
@@ -649,19 +655,49 @@ def render_dashboard(user_id: int, username: str) -> None:
             st.caption("Kayıtların burada listelenecek.")
 
 
-def main():
-    st.title("JARVIS · YKS Çalışma Stüdyosu")
-    st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
-    if "user_id" not in st.session_state:
-        st.session_state.user_id = None
-
-    if st.session_state.user_id is None:
-        login_tab, register_tab = st.tabs(["Giriş", "Hesap oluştur"])
+def render_login() -> None:
+    background_path = Path(__file__).resolve().parent / "assets" / "login_mountains.png"
+    background_rule = ""
+    mountain_rules = ""
+    if background_path.exists():
+        import base64
+        encoded_image = base64.b64encode(background_path.read_bytes()).decode("ascii")
+        background_rule = f'background-image:linear-gradient(90deg,#0b1724a8,#10202b78),url("data:image/png;base64,{encoded_image}");'
+    else:
+        mountain_rules = '''
+        [data-testid="stAppViewContainer"]:before { content:"";position:fixed;inset:22% 0 0;pointer-events:none;opacity:.75;background:#263e42;clip-path:polygon(0 38%,12% 17%,23% 47%,38% 9%,51% 39%,64% 0,79% 41%,90% 16%,100% 38%,100% 100%,0 100%); }
+        [data-testid="stAppViewContainer"]:after { content:"";position:fixed;inset:39% 0 0;pointer-events:none;opacity:.88;background:linear-gradient(180deg,#122b31 0%,#101c25 78%);clip-path:polygon(0 30%,17% 8%,34% 35%,49% 3%,66% 31%,81% 5%,100% 27%,100% 100%,0 100%); }
+        '''
+    st.markdown(f'''<style>
+    html,body,[data-testid="stAppViewContainer"] {{ background:#15232c !important; }}
+    [data-testid="stAppViewContainer"] {{ {background_rule} background-position:center;background-size:cover;background-attachment:fixed; }}
+    {mountain_rules}
+    [data-testid="stMainBlockContainer"] {{ position:relative;z-index:2;max-width:520px!important;padding-top:7vh!important;padding-bottom:8vh!important; }}
+    [data-testid="stSidebar"] {{ display:none; }}
+    [data-testid="stVerticalBlockBorderWrapper"] {{ background:#14232fd9;border:1px solid #ffffff3b;border-radius:24px;padding:1.65rem 1.7rem 1.2rem;backdrop-filter:blur(20px);box-shadow:0 30px 90px #030a10a8; }}
+    [data-testid="stForm"] {{ background:transparent;border:0;padding:0; }}
+    [data-testid="stForm"] label,[data-testid="stForm"] p {{ color:#dbe5e8!important; }}
+    [data-testid="stForm"] input {{ background:#10202bbd!important;border:1px solid #ffffff42!important;border-radius:999px!important;color:#fff!important;min-height:46px;padding-left:1rem; }}
+    [data-testid="stForm"] input::placeholder {{ color:#aebdc5!important; }}
+    [data-testid="stForm"] button {{ border-radius:999px!important;background:#f0f5f3!important;color:#182d30!important;border:0!important;font-weight:750!important;min-height:46px; }}
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0d!important;border:1px solid #ffffff1c; }}
+    [data-testid="stTabs"] [data-baseweb="tab"] {{ color:#dbe4e8!important; }}
+    [data-testid="stTabs"] [aria-selected="true"] {{ color:#142a30!important; }}
+    .auth-brand {{ display:flex;align-items:center;justify-content:center;gap:.65rem;color:#f5faf8;font-size:.84rem;font-weight:800;letter-spacing:.17em;margin-bottom:1.1rem;text-shadow:0 2px 15px #0008; }}
+    .auth-brand span {{ display:grid;place-items:center;width:37px;height:37px;border-radius:13px;background:#e7f4ee;color:#1a3b35;font-size:1.1rem;letter-spacing:0; }}
+    .auth-title {{ color:#f8faf9;font-size:1.72rem;font-weight:760;letter-spacing:-.035em;text-align:center;margin:.2rem 0 .4rem; }}
+    .auth-copy {{ color:#cbd7d9;text-align:center;font-size:.92rem;margin:0 0 1.35rem; }}
+    @media(max-width:600px) {{ [data-testid="stMainBlockContainer"]{{padding:3vh 1rem!important}} [data-testid="stVerticalBlockBorderWrapper"]{{padding:1.2rem!important;border-radius:20px}} }}
+    </style>''', unsafe_allow_html=True)
+    st.markdown('<div class="auth-brand"><span>J</span> JARVIS · YKS STUDIO</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">Kişisel çalışma alanına giriş yap veya hesabını oluştur.</div>', unsafe_allow_html=True)
+        login_tab, register_tab = st.tabs(["Giriş yap", "Hesap oluştur"])
         with login_tab:
             with st.form("login_form"):
-                username = st.text_input("Kullanıcı adı")
-                password = st.text_input("Parola", type="password")
-                login = st.form_submit_button("Giriş yap", use_container_width=True)
+                username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi")
+                password = st.text_input("Parola", type="password", placeholder="Parolan")
+                login = st.form_submit_button("Giriş yap  →", use_container_width=True)
             if login:
                 user_id = authenticate(username, password)
                 if user_id is None:
@@ -672,10 +708,10 @@ def main():
                     st.rerun()
         with register_tab:
             with st.form("register_form"):
-                new_username = st.text_input("Kullanıcı adı", key="register_username")
-                new_password = st.text_input("Parola (en az 10 karakter)", type="password", key="register_password")
-                confirm_password = st.text_input("Parolayı tekrar yazın", type="password")
-                register = st.form_submit_button("Hesap oluştur", use_container_width=True)
+                new_username = st.text_input("Kullanıcı adı", placeholder="3–32 karakter", key="register_username")
+                new_password = st.text_input("Parola", type="password", placeholder="En az 10 karakter", key="register_password")
+                confirm_password = st.text_input("Parolayı tekrar yaz", type="password", placeholder="Parola onayı")
+                register = st.form_submit_button("Hesap oluştur  →", use_container_width=True)
             if register:
                 if new_password != confirm_password:
                     st.error("Parolalar eşleşmiyor.")
@@ -687,9 +723,18 @@ def main():
                         st.session_state.user_id = user_id
                         st.session_state.username = new_username.strip()
                         st.rerun()
-        st.caption("Hesap parolaları SQLite veritabanında PBKDF2 ile özetlenerek saklanır.")
+        st.caption("Parolan korunur · hesap verilerin bu çalışma alanında saklanır")
+
+def main():
+    if "user_id" not in st.session_state:
+        st.session_state.user_id = None
+
+    if st.session_state.user_id is None:
+        render_login()
         st.stop()
 
+    st.title("JARVIS · YKS Çalışma Stüdyosu")
+    st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
     with st.sidebar:
@@ -713,13 +758,14 @@ def main():
             with st.expander("Son kayıtlar"):
                 for item in records[-6:]:
                     st.write(f"• {item.get('type')} — {item.get('title')}")
+        st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
+        active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme",
+                                             "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
+                               label_visibility="collapsed", key="active_view")
 
-    dashboard_tab, q_tab, p_tab, progress_tab, r_tab, m_tab, j_tab = st.tabs(
-        ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme", "🔗 Kaynak", "🗂️ Hafıza", "🤖 JARVIS Araçları"]
-    )
-    with dashboard_tab:
+    if active_view == "⌂ Genel Bakış":
         render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
-    with q_tab:
+    if active_view == "📝 Soru Analizi":
         st.subheader("Hatalı soru fotoğrafı")
         uploaded = st.file_uploader("Sorunun fotoğrafını yükleyin", type=["png", "jpg", "jpeg"], key="question_image")
         if uploaded:
@@ -738,7 +784,7 @@ def main():
         if st.session_state.get("last_analysis"):
             st.markdown(st.session_state.last_analysis)
 
-    with p_tab:
+    if active_view == "📅 Program":
         st.subheader("Çalışma programı")
         mode = st.radio("İşlem", ["Yapay zekâya program hazırlat", "Mevcut programımı kaydet"], horizontal=True)
         if mode.startswith("Yapay"):
@@ -775,7 +821,7 @@ def main():
                 if st.button("📊 Program görselini oluştur", key="image_manual", use_container_width=True):
                     show_program_image(st.session_state.last_manual_plan, "manual")
 
-    with progress_tab:
+    if active_view == "📈 İlerleme":
         st.subheader("Çalışma ve deneme takibi")
         programs = [row for row in load_memory(user_id) if row.get("type") == "calisma_programi"]
         if programs:
@@ -869,7 +915,7 @@ def main():
             except ImportError:
                 st.dataframe(results, use_container_width=True)
 
-    with r_tab:
+    if active_view == "🔗 Kaynak Arşivi":
         st.subheader("Ders notu / kaynak bağlantısı")
         link = st.text_input("Web bağlantısı", placeholder="https://...")
         topic = st.text_input("Konu", placeholder="Örn: Fonksiyonlar")
@@ -916,7 +962,7 @@ def main():
                 save_memory(user_id, "kaynak_linki", link.strip(), topic)
                 st.success("Kaynak bağlantısı hafızaya eklendi.")
 
-    with m_tab:
+    if active_view == "🗂️ Hafıza":
         st.subheader("Kayıtlı hafıza")
         records = load_memory(user_id)
         if not records:
@@ -932,7 +978,7 @@ def main():
                     delete_memory_record(user_id, record.get("id", ""))
                     st.rerun()
 
-    with j_tab:
+    if active_view == "🤖 JARVIS Araçları":
         st.subheader("JARVIS notları ve hatırlatıcıları")
         note_text = st.text_area("Hızlı not", placeholder="Daha sonra tekrar edeceğim konu...", key="jarvis_note")
         if st.button("📝 Notu kaydet", key="save_jarvis_note"):
@@ -982,78 +1028,79 @@ def main():
         st.write("Matematik: Rehber Matematik / Mert Hoca · Fizik: VIP Fizik · Kimya: Görkem Şahin · "
                  "Biyoloji: Dr. Biyoloji · Türkçe: Rüştü Hoca · Tarih: Benim Hocam · Coğrafya: Coğrafyanın Kodları")
 
-    st.divider()
-    st.header("💬 Koçunla konuş")
-    chats = read_user_json(user_id, "chats", [])
-    if not chats:
-        chats = [{"id": uuid.uuid4().hex[:12], "title": "Yeni sohbet", "messages": []}]
-        write_user_json(user_id, "chats", chats)
-    chat_ids = [chat["id"] for chat in chats]
-    if st.session_state.get("active_chat") not in chat_ids:
-        st.session_state.active_chat = chat_ids[-1]
-    chat_left, chat_mid, chat_right = st.columns([3, 1, 1])
-    active_chat_id = chat_left.selectbox("Sohbet", chat_ids,
-                                        index=chat_ids.index(st.session_state.active_chat),
-                                        format_func=lambda item_id: next((c["title"] for c in chats if c["id"] == item_id), "Sohbet"),
-                                        key="chat_selector")
-    st.session_state.active_chat = active_chat_id
-    active_chat = next(chat for chat in chats if chat["id"] == active_chat_id)
-    chat_mid.button("➕ Yeni", key="new_chat", on_click=create_new_chat, args=(user_id,))
-    if chat_right.button("🧹 Temizle", key="clear_chat"):
-        active_chat["messages"] = []
-        active_chat["title"] = "Yeni sohbet"
-        write_user_json(user_id, "chats", chats)
-        st.rerun()
-    if active_chat["messages"]:
-        st.download_button("Sohbeti JSON indir", json.dumps(active_chat, ensure_ascii=False, indent=2),
-                           file_name="jarvis_sohbet.json", mime="application/json", key="export_chat")
-    messages = active_chat["messages"]
-    for message in messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    user_input = st.chat_input("Mesajını yaz ve Enter'a bas...")
-    if user_input:
-        messages.append({"role": "user", "content": user_input})
-        if active_chat["title"] == "Yeni sohbet":
-            active_chat["title"] = user_input[:36] + ("…" if len(user_input) > 36 else "")
-        write_user_json(user_id, "chats", chats)
-        with st.chat_message("user"):
-            st.markdown(user_input)
-        with st.chat_message("assistant"):
-            try:
-                normalized = user_input.casefold().strip()
-                if normalized.startswith("hesapla "):
-                    answer = safe_calculate(user_input[8:].strip())
-                elif normalized.startswith("not al "):
-                    notes = read_user_json(user_id, "notes", [])
-                    notes.append({"id": uuid.uuid4().hex[:12], "created_at": datetime.now().astimezone().isoformat(timespec="minutes"),
-                                  "text": user_input[7:].strip()})
-                    write_user_json(user_id, "notes", notes)
-                    answer = "Notunu kaydettim."
-                elif any(word in normalized for word in ("hocalar", "ders kadrosu", "hangi hoca")):
-                    answer = "Matematik: Rehber Matematik / Mert Hoca; Fizik: VIP Fizik; Kimya: Görkem Şahin; " \
-                             "Biyoloji: Dr. Biyoloji; Türkçe: Rüştü Hoca; Tarih: Benim Hocam; Coğrafya: Coğrafyanın Kodları."
-                else:
-                    facts = read_user_json(user_id, "facts", [])
-                    if re.search(r"benim adım|hedefim|favorim|seviyorum", normalized):
-                        facts.append(user_input)
-                        write_user_json(user_id, "facts", facts[-30:])
-                    prior = "\n".join(f"{m['role']}: {m['content']}" for m in messages[-9:-1])
-                    prompt = ("Sen JARVIS adlı, YKS öğrencisine kısa, somut ve motive edici öneriler veren kişisel koçsun. "
-                              "Kullanıcıya samimi ve net Türkçe ile, gerekirse 'efendim' diye hitap et. "
-                              "Belirsiz bilgiyi kesinmiş gibi sunma; uygulanabilir öneriler ver. "
-                              "Ders rehberleri: Matematik Rehber Matematik/Mert Hoca, Fizik VIP Fizik, Kimya Görkem Şahin, "
-                              "Biyoloji Dr. Biyoloji, Türkçe Rüştü Hoca, Tarih Benim Hocam, Coğrafya Coğrafyanın Kodları.\n"
-                              f"Öğrenci bilgileri: {'; '.join(facts[-10:])}\n"
-                              f"YKS hafızası:\n{memory_to_text(load_memory(user_id))}\n"
-                              f"Önceki konuşma:\n{prior}\n\nKullanıcının mesajı: {user_input}")
-                    with st.spinner("JARVIS düşünüyor..."):
-                        answer = generate_text(prompt)
-            except Exception as exc:
-                answer = f"Yanıt oluşturulamadı: {exc}"
-            st.markdown(answer)
-        messages.append({"role": "assistant", "content": answer})
-        write_user_json(user_id, "chats", chats)
+    if active_view == "💬 Koçla Sohbet":
+        st.divider()
+        st.header("💬 Koçunla konuş")
+        chats = read_user_json(user_id, "chats", [])
+        if not chats:
+            chats = [{"id": uuid.uuid4().hex[:12], "title": "Yeni sohbet", "messages": []}]
+            write_user_json(user_id, "chats", chats)
+        chat_ids = [chat["id"] for chat in chats]
+        if st.session_state.get("active_chat") not in chat_ids:
+            st.session_state.active_chat = chat_ids[-1]
+        chat_left, chat_mid, chat_right = st.columns([3, 1, 1])
+        active_chat_id = chat_left.selectbox("Sohbet", chat_ids,
+                                            index=chat_ids.index(st.session_state.active_chat),
+                                            format_func=lambda item_id: next((c["title"] for c in chats if c["id"] == item_id), "Sohbet"),
+                                            key="chat_selector")
+        st.session_state.active_chat = active_chat_id
+        active_chat = next(chat for chat in chats if chat["id"] == active_chat_id)
+        chat_mid.button("➕ Yeni", key="new_chat", on_click=create_new_chat, args=(user_id,))
+        if chat_right.button("🧹 Temizle", key="clear_chat"):
+            active_chat["messages"] = []
+            active_chat["title"] = "Yeni sohbet"
+            write_user_json(user_id, "chats", chats)
+            st.rerun()
+        if active_chat["messages"]:
+            st.download_button("Sohbeti JSON indir", json.dumps(active_chat, ensure_ascii=False, indent=2),
+                               file_name="jarvis_sohbet.json", mime="application/json", key="export_chat")
+        messages = active_chat["messages"]
+        for message in messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+        user_input = st.chat_input("Mesajını yaz ve Enter'a bas...")
+        if user_input:
+            messages.append({"role": "user", "content": user_input})
+            if active_chat["title"] == "Yeni sohbet":
+                active_chat["title"] = user_input[:36] + ("…" if len(user_input) > 36 else "")
+            write_user_json(user_id, "chats", chats)
+            with st.chat_message("user"):
+                st.markdown(user_input)
+            with st.chat_message("assistant"):
+                try:
+                    normalized = user_input.casefold().strip()
+                    if normalized.startswith("hesapla "):
+                        answer = safe_calculate(user_input[8:].strip())
+                    elif normalized.startswith("not al "):
+                        notes = read_user_json(user_id, "notes", [])
+                        notes.append({"id": uuid.uuid4().hex[:12], "created_at": datetime.now().astimezone().isoformat(timespec="minutes"),
+                                      "text": user_input[7:].strip()})
+                        write_user_json(user_id, "notes", notes)
+                        answer = "Notunu kaydettim."
+                    elif any(word in normalized for word in ("hocalar", "ders kadrosu", "hangi hoca")):
+                        answer = "Matematik: Rehber Matematik / Mert Hoca; Fizik: VIP Fizik; Kimya: Görkem Şahin; " \
+                                 "Biyoloji: Dr. Biyoloji; Türkçe: Rüştü Hoca; Tarih: Benim Hocam; Coğrafya: Coğrafyanın Kodları."
+                    else:
+                        facts = read_user_json(user_id, "facts", [])
+                        if re.search(r"benim adım|hedefim|favorim|seviyorum", normalized):
+                            facts.append(user_input)
+                            write_user_json(user_id, "facts", facts[-30:])
+                        prior = "\n".join(f"{m['role']}: {m['content']}" for m in messages[-9:-1])
+                        prompt = ("Sen JARVIS adlı, YKS öğrencisine kısa, somut ve motive edici öneriler veren kişisel koçsun. "
+                                  "Kullanıcıya samimi ve net Türkçe ile, gerekirse 'efendim' diye hitap et. "
+                                  "Belirsiz bilgiyi kesinmiş gibi sunma; uygulanabilir öneriler ver. "
+                                  "Ders rehberleri: Matematik Rehber Matematik/Mert Hoca, Fizik VIP Fizik, Kimya Görkem Şahin, "
+                                  "Biyoloji Dr. Biyoloji, Türkçe Rüştü Hoca, Tarih Benim Hocam, Coğrafya Coğrafyanın Kodları.\n"
+                                  f"Öğrenci bilgileri: {'; '.join(facts[-10:])}\n"
+                                  f"YKS hafızası:\n{memory_to_text(load_memory(user_id))}\n"
+                                  f"Önceki konuşma:\n{prior}\n\nKullanıcının mesajı: {user_input}")
+                        with st.spinner("JARVIS düşünüyor..."):
+                            answer = generate_text(prompt)
+                except Exception as exc:
+                    answer = f"Yanıt oluşturulamadı: {exc}"
+                st.markdown(answer)
+            messages.append({"role": "assistant", "content": answer})
+            write_user_json(user_id, "chats", chats)
 
 if __name__ == "__main__":
     main()
