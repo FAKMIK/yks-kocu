@@ -17,6 +17,7 @@ import os
 import re
 import socket
 import sqlite3
+import time
 import uuid
 import hmac
 from html.parser import HTMLParser
@@ -103,6 +104,19 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .week-empty-copy span { display:block;color:var(--muted);font-size:.88rem;line-height:1.55;max-width:300px; }
 .week-bars { height:112px;display:flex;align-items:flex-end;gap:7px;padding:12px;border-radius:14px;background:linear-gradient(180deg,#f6f7fa,#eef1f6); }
 .week-bars i { width:12px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#e48a56,#bb483d);opacity:.3; }
+.calendar-day { min-height:148px;padding:.7rem;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#fff,#f4f5f8);box-shadow:0 5px 16px #1d2c4408; }
+.calendar-day.is-today { border-color:#da7650;box-shadow:0 0 0 2px #da765022; }
+.calendar-day small,.calendar-day strong,.calendar-day span { display:block; }
+.calendar-day small { color:var(--muted);font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em; }
+.calendar-day strong { color:var(--ink);font-size:1.35rem; }
+.calendar-day span { color:var(--muted);font-size:.64rem;margin:.2rem 0 .45rem; }
+.calendar-day ul { margin:0;padding-left:.8rem;color:var(--ink);font-size:.62rem;line-height:1.45; }
+.calendar-day li { margin-bottom:.2rem; }
+.calendar-day .calendar-quiet { color:var(--muted);list-style:none; }
+.focus-timer-card { text-align:center;margin:1rem auto 1.5rem;padding:2.5rem 1rem;border:1px solid #e6cdbf;border-radius:28px;background:radial-gradient(circle at 50% 48%,#e7603c20,transparent 39%),linear-gradient(145deg,#202027,#17191f);box-shadow:0 20px 60px #120a0870; }
+.focus-live { color:#ffb96d;font-size:.72rem;font-weight:800;letter-spacing:.18em; }
+.focus-clock { margin:.35rem 0;font-size:clamp(4rem,12vw,7.5rem);font-weight:850;letter-spacing:-.07em;line-height:1.1;color:#fff6e9;text-shadow:0 0 36px #ff714355;font-variant-numeric:tabular-nums; }
+.focus-subject { color:#d0c5bd;font-size:.95rem; }
 @media(max-width:760px) { .week-empty { min-height:180px;padding:1rem;gap:.8rem; } .week-bars { gap:4px;padding:8px; } .week-bars i { width:8px; } }
 @media(max-width:760px) { [data-testid="stMainBlockContainer"] { padding:1rem 1rem 3rem; } .hero-card { min-height:200px; padding:1.5rem; border-radius:19px; } .hero-art { width:26%; min-width:100px; } .hero-card h1 { font-size:2rem; } [data-testid="stTabs"] [data-baseweb="tab"] { padding:0 9px; font-size:.82rem; } }
 @media(prefers-reduced-motion:reduce) { *, *:before, *:after { transition:none !important; scroll-behavior:auto !important; } }
@@ -583,6 +597,30 @@ def render_dashboard(user_id: int, username: str) -> None:
     latest_exam = max(exam_results, key=lambda item: item.get("date", ""), default=None)
     latest_net = f"{latest_exam.get('Toplam', 0):g}" if latest_exam else "—"
     resource_count = sum(item.get("type") in {"kaynak_linki", "kaynak_pdf"} for item in records)
+    weekly_goal = max(60, int(read_user_json(user_id, "weekly_goal", 900)))
+    week_minutes = sum(int(item.get("minutes", 0)) for item in focus_logs
+                       if (today - timedelta(days=6)).isoformat() <= item.get("date", "") <= today.isoformat())
+    study_dates = {item.get("date") for item in focus_logs if item.get("date")}
+    streak_cursor = today if today.isoformat() in study_dates else today - timedelta(days=1)
+    study_streak = 0
+    while streak_cursor.isoformat() in study_dates:
+        study_streak += 1
+        streak_cursor -= timedelta(days=1)
+    streak_badge = "İlk adım" if study_streak < 3 else "Bronz ritim" if study_streak < 7 else "Gümüş istikrar" if study_streak < 30 else "Altın disiplin"
+    review_items = read_user_json(user_id, "wrong_questions", [])
+    review_due = sum(not item.get("mastered") and item.get("next_review", "") <= today.isoformat() for item in review_items)
+    unfinished_today = [item for item in tasks if item.get("date") == today.isoformat() and not item.get("done")]
+    if review_due:
+        insight = f"Tekrar zamanı gelen {review_due} yanlış sorunu çözerek bilgini pekiştir."
+    elif unfinished_today:
+        task = unfinished_today[0]
+        insight = f"Bugünkü önceliğin: {task.get('subject', 'Ders')} · {task.get('topic') or task.get('target') or 'planlı görev'}"
+    elif latest_exam and len(exam_results) >= 2:
+        prior_exam = sorted(exam_results, key=lambda item: item.get("date", ""))[-2]
+        delta = float(latest_exam.get("Toplam", 0)) - float(prior_exam.get("Toplam", 0))
+        insight = f"Son iki denemede toplam netin {'+' if delta >= 0 else ''}{delta:.2f} değişti. Bir sonraki adım için en düşük ders netine odaklan."
+    else:
+        insight = "İlk çalışma oturumunu kaydet; JARVIS haftalık ritmini ve sıradaki önceliğini oluşturmaya başlasın."
 
     st.markdown(f"""
     <section class="hero-card">
@@ -606,16 +644,27 @@ def render_dashboard(user_id: int, username: str) -> None:
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="section-kicker">Bugün ve bu hafta</div>', unsafe_allow_html=True)
+    st.markdown(f"<div class='soft-card' style='margin-bottom:1rem;border-left:4px solid #e16a48'><span class='section-kicker'>JARVIS İÇGÖRÜSÜ</span><p style='margin-top:.4rem'>{html.escape(insight)}</p></div>", unsafe_allow_html=True)
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("Bugünkü odak", today_focus_label, help="Kaydettiğin çalışma oturumlarının toplamı")
     k2.metric("Plan ilerlemesi", f"%{completion}", help=f"{done_count}/{task_count} görev tamamlandı")
     k3.metric("Son deneme neti", latest_net, help=latest_exam.get("name", "Deneme") if latest_exam else "Henüz deneme sonucu eklenmedi")
     k4.metric("Kaynak arşivin", str(resource_count), help="PDF ve bağlantı kaynakları")
+    streak_col, badge_col = st.columns([1, 3])
+    streak_col.metric("🔥 Çalışma serisi", f"{study_streak} gün")
+    badge_col.markdown(f"<div class='soft-card' style='padding:.85rem 1rem'><span class='section-kicker'>GELİŞİM ROZETİ</span><p style='margin-top:.3rem'>🏅 {streak_badge} · Her gün kısa bir oturum bile serini sürdürür.</p></div>", unsafe_allow_html=True)
 
     left, right = st.columns([1.45, 1], gap="large")
     with left:
         st.markdown('<div class="section-kicker">Ritmini oluştur</div>', unsafe_allow_html=True)
         st.subheader("Bu haftaki çalışma süren")
+        st.progress(min(1.0, week_minutes / weekly_goal), text=f"Haftalık hedef · {week_minutes // 60} sa {week_minutes % 60:02d} dk / {weekly_goal // 60} sa")
+        with st.expander("Haftalık hedefi düzenle"):
+            new_weekly_goal = st.number_input("Hedef (dakika)", min_value=60, max_value=4200, step=60,
+                                              value=weekly_goal, key="weekly_goal_input")
+            if st.button("Hedefi kaydet", key="save_weekly_goal"):
+                write_user_json(user_id, "weekly_goal", int(new_weekly_goal))
+                st.rerun()
         dates = [(today - timedelta(days=i)).isoformat() for i in reversed(range(7))]
         focus_by_date = {d: sum(int(item.get("minutes", 0)) for item in focus_logs if item.get("date") == d) for d in dates}
         labels = {d: f"{['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][date.fromisoformat(d).weekday()]} {date.fromisoformat(d).day}" for d in dates}
@@ -651,11 +700,20 @@ def render_dashboard(user_id: int, username: str) -> None:
         st.subheader("Bugünün görevleri")
         today_tasks = [item for item in tasks if item.get("date") == today.isoformat()]
         if today_tasks:
-            for item in today_tasks[:5]:
+            for task_index, item in enumerate(today_tasks[:5]):
                 label = " · ".join(part for part in [item.get("subject", "Ders"), item.get("topic", ""), item.get("target", "")] if part)
                 state = "✓" if item.get("done") else "○"
                 st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#3858d6'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
-            st.caption("Görevleri işaretlemek için İlerleme sekmesini aç.")
+                if not item.get("done"):
+                    task_actions = st.columns(2)
+                    if task_actions[0].button("✓ Tamamlandı", key=f"dash_done_{item.get('id', task_index)}", use_container_width=True):
+                        item["done"] = True
+                        write_user_json(user_id, "study_tasks", tasks)
+                        st.rerun()
+                    if task_actions[1].button("Yarına taşı", key=f"dash_defer_{item.get('id', task_index)}", use_container_width=True):
+                        item["date"] = (today + timedelta(days=1)).isoformat()
+                        write_user_json(user_id, "study_tasks", tasks)
+                        st.rerun()
         else:
             st.markdown("<div class='empty-state'>Bugün için planlanmış görev yok. Programını ekleyip görev listesine dönüştürebilirsin.</div>", unsafe_allow_html=True)
         st.markdown('<div class="section-kicker" style="margin-top:1.4rem">Son hareketler</div>', unsafe_allow_html=True)
@@ -665,6 +723,79 @@ def render_dashboard(user_id: int, username: str) -> None:
                 st.markdown(f"<div style='padding:9px 2px;border-bottom:1px solid #e4e9f1'><span>{icon}</span> &nbsp;<b>{html.escape(item.get('title','Kayıt'))}</b><br><small style='color:#8290a4'>{html.escape(item.get('created_at',''))}</small></div>", unsafe_allow_html=True)
         else:
             st.caption("Kayıtların burada listelenecek.")
+
+
+@st.fragment(run_every="1s")
+def render_focus_timer(user_id: int) -> None:
+    state = st.session_state
+    owner_ok = state.get("focus_timer_user") == user_id
+    deadline = state.get("focus_timer_deadline") if owner_ok else None
+    paused = owner_ok and state.get("focus_timer_paused", False)
+    if not deadline and not paused:
+        if state.pop("focus_timer_done", False):
+            st.success("Odak oturumu tamamlandı ve çalışma geçmişine eklendi.")
+        st.markdown("<div class='section-kicker'>ODAK SEANSI</div><h2>Bir işe odaklan. Gerisini sonra düşün.</h2>", unsafe_allow_html=True)
+        with st.form("pomodoro_start_form"):
+            subject = st.selectbox("Ders", ["Matematik", "Türkçe", "Fizik", "Kimya", "Biyoloji", "Tarih", "Coğrafya", "Diğer"], key="pomodoro_subject")
+            duration = st.select_slider("Odak süresi", options=[15, 25, 35, 45, 60, 90], value=25, format_func=lambda value: f"{value} dk", key="pomodoro_duration")
+            start = st.form_submit_button("▶ Odağı başlat", use_container_width=True)
+        if start:
+            state.focus_timer_user = user_id
+            state.focus_timer_subject = subject
+            state.focus_timer_duration = int(duration)
+            state.focus_timer_remaining = int(duration) * 60
+            state.focus_timer_deadline = time.time() + int(duration) * 60
+            state.focus_timer_paused = False
+            st.rerun(scope="fragment")
+        st.caption("Sayaç çalışırken bu sekme açık kalsın. Tamamlanan seans çalışma geçmişine otomatik kaydedilir.")
+        return
+
+    target_seconds = int(state.get("focus_timer_duration", 25)) * 60
+    remaining = int(state.get("focus_timer_remaining", 0)) if paused else max(0, int(state.focus_timer_deadline - time.time()))
+    mins, secs = divmod(remaining, 60)
+    st.markdown(
+        f"<div class='focus-timer-card'><div class='focus-live'>● CANLI ODAK</div><div class='focus-clock'>{mins:02d}:{secs:02d}</div>"
+        f"<div class='focus-subject'>{html.escape(state.get('focus_timer_subject', 'Ders'))} · {int(state.get('focus_timer_duration', 25))} dakikalık seans</div></div>",
+        unsafe_allow_html=True,
+    )
+    st.progress(min(1.0, max(0.0, 1 - remaining / max(1, target_seconds))), text="Seans ilerlemesi")
+    controls = st.columns(3)
+    if paused:
+        if controls[0].button("▶ Devam et", key="pomodoro_resume", use_container_width=True):
+            state.focus_timer_deadline = time.time() + remaining
+            state.focus_timer_paused = False
+            st.rerun(scope="fragment")
+    elif controls[0].button("Ⅱ Duraklat", key="pomodoro_pause", use_container_width=True):
+        state.focus_timer_remaining = remaining
+        state.focus_timer_deadline = None
+        state.focus_timer_paused = True
+        st.rerun(scope="fragment")
+    if controls[1].button("Bitir ve kaydet", key="pomodoro_finish", use_container_width=True):
+        elapsed_seconds = max(0, target_seconds - remaining)
+        elapsed_minutes = max(1, int((elapsed_seconds + 59) // 60))
+        logs = read_user_json(user_id, "study_sessions", [])
+        logs.append({"id": uuid.uuid4().hex[:10], "date": date.today().isoformat(), "minutes": elapsed_minutes,
+                     "subject": state.get("focus_timer_subject", "Ders"), "note": "Odak modu seansı"})
+        write_user_json(user_id, "study_sessions", logs)
+        state.focus_timer_deadline = None
+        state.focus_timer_paused = False
+        state.focus_timer_done = True
+        st.rerun()
+    if controls[2].button("Sıfırla", key="pomodoro_reset", use_container_width=True):
+        state.focus_timer_deadline = None
+        state.focus_timer_paused = False
+        state.focus_timer_remaining = 0
+        st.rerun(scope="fragment")
+    if not paused and remaining <= 0:
+        logs = read_user_json(user_id, "study_sessions", [])
+        logs.append({"id": uuid.uuid4().hex[:10], "date": date.today().isoformat(),
+                     "minutes": int(state.get("focus_timer_duration", 25)),
+                     "subject": state.get("focus_timer_subject", "Ders"), "note": "Odak modu tamamlandı"})
+        write_user_json(user_id, "study_sessions", logs)
+        state.focus_timer_deadline = None
+        state.focus_timer_paused = False
+        state.focus_timer_done = True
+        st.rerun()
 
 
 def render_login() -> None:
@@ -805,6 +936,9 @@ def main():
         .week-empty-copy strong { color:#f1f3f6!important; }
         .week-empty-copy span { color:#aeb8c6!important; }
         .week-bars { background:linear-gradient(180deg,#252c36,#202630)!important; }
+        .calendar-day { background:linear-gradient(145deg,#1b212a,#171c24)!important;border-color:#343c48!important; }
+        .calendar-day small,.calendar-day span,.calendar-day .calendar-quiet { color:#aab4c2!important; }
+        .calendar-day strong,.calendar-day ul { color:#e9edf3!important; }
         [data-testid="stForm"] { background:linear-gradient(145deg,#20252e,#191e26)!important;border:1px solid #343c48!important;border-radius:18px!important;padding:18px!important;box-shadow:0 12px 32px #05070c55!important; }
         .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#171d26!important;color:#f1f3f6!important;border-color:#414957!important; }
         [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#202630!important; }
@@ -849,7 +983,7 @@ def main():
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
         active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme",
-                                             "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
+                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
         st.markdown("<div class='side-nav-label'>DURUM</div>", unsafe_allow_html=True)
@@ -863,11 +997,17 @@ def main():
     if active_view == "⌂ Genel Bakış":
         render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
     if active_view == "📝 Soru Analizi":
-        st.subheader("Hatalı soru fotoğrafı")
+        st.subheader("Soru hata laboratuvarı")
+        st.caption("Yanlış soruyu çözümle, hata türünü kaydet ve aralıklı tekrar kuyruğuna al.")
         uploaded = st.file_uploader("Sorunun fotoğrafını yükleyin", type=["png", "jpg", "jpeg"], key="question_image")
         if uploaded:
             st.image(uploaded, caption="Yüklenen soru", use_container_width=True)
-        if st.button("🔍 Soruyu analiz et ve hafızaya al", use_container_width=True):
+        meta_a, meta_b = st.columns(2)
+        mistake_subject = meta_a.selectbox("Ders", ["Matematik", "Türkçe", "Fizik", "Kimya", "Biyoloji", "Tarih", "Coğrafya"], key="mistake_subject")
+        mistake_topic = meta_b.text_input("Konu", placeholder="Örn: Problemler", key="mistake_topic")
+        error_kind = st.selectbox("Hata türü", ["Konu eksiği", "İşlem hatası", "Dikkat hatası", "Süre yetmedi", "Soruyu yanlış yorumladım"], key="mistake_kind")
+        first_review = st.date_input("İlk tekrar tarihi", value=date.today() + timedelta(days=1), key="mistake_first_review")
+        if st.button("🔍 Analiz et ve tekrar kuyruğuna kaydet", use_container_width=True):
             if not uploaded:
                 st.warning("Önce bir soru fotoğrafı yükleyin.")
             else:
@@ -876,10 +1016,41 @@ def main():
                         analysis = analyze_image(uploaded)
                     st.session_state.last_analysis = analysis
                     save_memory(user_id, "soru_analizi", analysis, uploaded.name)
+                    mistakes = read_user_json(user_id, "wrong_questions", [])
+                    mistakes.append({"id": uuid.uuid4().hex[:10], "subject": mistake_subject,
+                                     "topic": mistake_topic.strip() or uploaded.name, "error_kind": error_kind,
+                                     "created_at": date.today().isoformat(), "next_review": first_review.isoformat(),
+                                     "review_count": 0, "mastered": False, "analysis": analysis})
+                    write_user_json(user_id, "wrong_questions", mistakes)
+                    st.success("Analiz hafızaya alındı ve tekrar kuyruğuna eklendi.")
                 except Exception as exc:
                     st.error(f"Soru analiz edilemedi: {exc}")
         if st.session_state.get("last_analysis"):
             st.markdown(st.session_state.last_analysis)
+        st.divider()
+        st.markdown("### Aralıklı tekrar kuyruğu")
+        mistakes = read_user_json(user_id, "wrong_questions", [])
+        due_mistakes = [item for item in mistakes if not item.get("mastered") and item.get("next_review", "") <= date.today().isoformat()]
+        if not due_mistakes:
+            st.markdown("<div class='empty-state'>Bugün için bekleyen tekrar yok. Yanlış sorularını kaydettiğinde uygun zamanda burada görünür.</div>", unsafe_allow_html=True)
+        for mistake in due_mistakes:
+            with st.container(border=True):
+                st.markdown(f"**{html.escape(mistake.get('subject', 'Ders'))} · {html.escape(mistake.get('topic', 'Konu'))}**")
+                st.caption(f"Hata türü: {mistake.get('error_kind', 'Belirtilmedi')} · Tekrar: {mistake.get('review_count', 0)}")
+                with st.expander("Çözüm analizini aç"):
+                    st.markdown(mistake.get("analysis", ""))
+                review_actions = st.columns(2)
+                if review_actions[0].button("Tekrar ettim", key=f"review_done_{mistake['id']}", use_container_width=True):
+                    intervals = [1, 3, 7, 14, 30]
+                    mistake["review_count"] = int(mistake.get("review_count", 0)) + 1
+                    interval = intervals[min(mistake["review_count"] - 1, len(intervals) - 1)]
+                    mistake["next_review"] = (date.today() + timedelta(days=interval)).isoformat()
+                    write_user_json(user_id, "wrong_questions", mistakes)
+                    st.rerun()
+                if review_actions[1].button("Artık biliyorum", key=f"review_mastered_{mistake['id']}", use_container_width=True):
+                    mistake["mastered"] = True
+                    write_user_json(user_id, "wrong_questions", mistakes)
+                    st.rerun()
 
     if active_view == "📅 Program":
         st.subheader("Çalışma programı")
@@ -892,9 +1063,22 @@ def main():
                     st.warning("Önce durumunuzu ve hedefinizi yazın.")
                 else:
                     try:
-                        prompt = ("Öğrencinin durumu:\n" + status + "\n\nHafıza:\n" + memory_to_text(records) +
+                        exam_history = read_user_json(user_id, "exam_results", [])
+                        recent_exam_text = "Henüz deneme sonucu kaydedilmedi."
+                        if exam_history:
+                            latest = max(exam_history, key=lambda item: item.get("date", ""))
+                            recent_exam_text = ", ".join(f"{subject}: {float(latest.get(subject, 0)):.2f}/{maximum}" for subject, maximum in [("Türkçe", 40), ("Matematik", 40), ("Sosyal", 20), ("Fen", 20)])
+                        mistake_history = read_user_json(user_id, "wrong_questions", [])
+                        error_counts = {}
+                        for mistake in mistake_history:
+                            kind = mistake.get("error_kind", "Diğer")
+                            error_counts[kind] = error_counts.get(kind, 0) + 1
+                        common_errors = ", ".join(f"{kind}: {count}" for kind, count in sorted(error_counts.items(), key=lambda pair: pair[1], reverse=True)[:3]) or "Henüz yanlış soru örüntüsü yok."
+                        prompt = ("Öğrencinin durumu:\n" + status + "\n\nSon deneme ders netleri:\n" + recent_exam_text +
+                                  "\n\nYanlış sorularda görülen örüntüler:\n" + common_errors +
+                                  "\n\nHafıza:\n" + memory_to_text(records) +
                                   "\n\nUygulanabilir 7 günlük YKS çalışma programı hazırla. Her gün ders, süre, konu ve ölçülebilir mini hedef olsun. "
-                                  "Dengeli mola ve tekrar zamanları ekle; gerçekçi olmayan yoğunluk önermem.")
+                                  "Dengeli mola ve aralıklı tekrar zamanları ekle. Zayıf net gelen derslere öncelik ver, bilinen yanlış örüntülerine yönelik kısa alıştırmalar koy. Gerçekçi olmayan yoğunluk önermem.")
                         with st.spinner("Program hazırlanıyor..."):
                             plan = generate_text(prompt)
                         st.session_state.last_ai_plan = plan
@@ -917,6 +1101,54 @@ def main():
             if st.session_state.get("last_manual_plan"):
                 if st.button("📊 Program görselini oluştur", key="image_manual", use_container_width=True):
                     show_program_image(st.session_state.last_manual_plan, "manual")
+
+    if active_view == "🎯 Odak Modu":
+        st.markdown("# 🎯 Odak Modu")
+        st.markdown("Bildirimleri kapat, tek ders seç ve seansını başlat. Sayaç tamamlandığında süre çalışma geçmişine eklenir.")
+        render_focus_timer(user_id)
+        st.markdown("### Son odak seansların")
+        recent_focus = sorted(read_user_json(user_id, "study_sessions", []), key=lambda item: item.get("date", ""), reverse=True)[:7]
+        if recent_focus:
+            st.dataframe([{"Tarih": item.get("date"), "Ders": item.get("subject"), "Dakika": item.get("minutes"), "Not": item.get("note", "")} for item in recent_focus], use_container_width=True, hide_index=True)
+        else:
+            st.caption("İlk odak seansın burada görünecek.")
+
+    if active_view == "🎬 TYT Video Kampları":
+        st.markdown("# 🎬 TYT Video Kampları")
+        st.caption("Seçili hocaların resmî YouTube kamplarını sayfadan ayrılmadan izle; ders numaranı kaydedip ilerlemeni takip et.")
+        camps = {
+            "Matematik · Rehber Matematik": {"key": "rehber_tyt_matematik", "title": "49 Günde TYT Matematik", "kind": "playlist", "id": "PLVoSZ0D0CB3pXrBmYoppjf2fwi3vqF-vY", "url": "https://www.youtube.com/playlist?list=PLVoSZ0D0CB3pXrBmYoppjf2fwi3vqF-vY", "note": "Resmî Rehber Matematik kamplarındaki 49 günlük TYT matematik listesi."},
+            "Geometri · Rehber Matematik": {"key": "rehber_tyt_geometri", "title": "TYT + AYT Geometri kampı", "kind": "playlist", "id": "PLVoSZ0D0CB3o0kCERon9daQQTbyyin4Ne", "url": "https://www.youtube.com/playlist?list=PLVoSZ0D0CB3o0kCERon9daQQTbyyin4Ne", "note": "Rehber Matematik'in resmî geometri kamp oynatma listesi."},
+            "Türkçe · Rüştü Hoca": {"key": "rustu_tyt_turkce", "title": "49 Günde TYT Türkçe kamp başlangıcı", "kind": "video", "id": "8u62QLBnFqY", "url": "https://www.youtube.com/watch?v=8u62QLBnFqY", "note": "Rehber Matematik ve Rüştü Hoca'nın ortak TYT Matematik–Türkçe kamp duyurusu."},
+            "Fizik · VIP Fizik": {"key": "vip_tyt_fizik", "title": "2026 TYT Fizik kampı", "kind": "playlist", "id": "PL9mxuVBieFNHWQSftkoEu7cuEefE39qSB", "url": "https://www.youtube.com/playlist?list=PL9mxuVBieFNHWQSftkoEu7cuEefE39qSB", "note": "VIP Fizik'in resmî bağlantı sayfasındaki TYT kamp oynatma listesi."},
+            "Kimya · Kimya Dersleri / Sinan İhtiyaroğlu": {"key": "sinan_tyt_kimya", "title": "29 Günde TYT Kimya kampı", "kind": "playlist", "id": "PLVFnE9wUPer0", "url": "https://www.youtube.com/playlist?list=PLVFnE9wUPer0", "note": "Kimya Dersleri kanalının 2027 TYT için yayınladığı 29 günlük kamp listesi."},
+            "Coğrafya · Benim Hocam / Bayram Meral": {"key": "bayram_meral_tyt_cografya", "title": "TYT Coğrafya genel tekrar kampı", "kind": "video", "id": "PupoOcwg6pA", "url": "https://www.youtube.com/watch?v=PupoOcwg6pA", "note": "Benim Hocam kanalındaki 2026 TYT Coğrafya genel tekrar kamp videosu."},
+            "Biyoloji · Dr. Biyoloji": {"key": "dr_biyoloji_tyt", "title": "TYT Birebir Biyoloji Kampı", "kind": "video", "id": "b5dOFdWNDLs", "url": "https://www.youtube.com/watch?v=b5dOFdWNDLs", "note": "Dr. Biyoloji kanalının TYT Birebir Biyoloji Kampı videosu; video açıklamasında kamp oynatma listesi bulunuyor."},
+        }
+        selected_camp = st.selectbox("Ders ve hoca", list(camps), key="selected_tyt_camp")
+        camp = camps[selected_camp]
+        st.markdown(f"### {html.escape(camp['title'])}")
+        st.caption(camp["note"])
+        if camp["kind"] == "playlist":
+            embed_src = f"https://www.youtube-nocookie.com/embed/videoseries?list={camp['id']}"
+            st.components.v1.iframe(embed_src, height=490, scrolling=False)
+        elif camp["kind"] == "video":
+            st.components.v1.iframe(f"https://www.youtube-nocookie.com/embed/{camp['id']}", height=430, scrolling=False)
+        else:
+            st.info("Bu hoca için YouTube'un güncel TYT kamp aramasını açıyoruz.")
+        st.link_button("YouTube'da aç", camp["url"], use_container_width=True)
+        progress = read_user_json(user_id, "camp_progress", {})
+        watched = progress.get(camp["key"], [])
+        lesson_cols = st.columns([1, 2])
+        lesson_number = lesson_cols[0].number_input("İzlediğin son ders", min_value=1, max_value=300, value=1, step=1, key=f"camp_lesson_{camp['key']}")
+        lesson_cols[1].caption(f"Bu kampta {len(watched)} ders ilerleme kaydın var.")
+        if st.button("✓ Bu dersi tamamlandı olarak kaydet", key=f"save_camp_{camp['key']}"):
+            if int(lesson_number) not in watched:
+                watched.append(int(lesson_number))
+            progress[camp["key"]] = sorted(watched)
+            write_user_json(user_id, "camp_progress", progress)
+            st.success(f"{lesson_number}. ders ilerlemene eklendi.")
+            st.rerun()
 
     if active_view == "📈 İlerleme":
         st.subheader("Çalışma ve deneme takibi")
@@ -953,9 +1185,35 @@ def main():
             st.info("Önce Program sekmesinden bir program kaydedin.")
 
         tasks = read_user_json(user_id, "study_tasks", [])
+        st.markdown("### Haftalık görev takvimi")
+        week_start = date.today() - timedelta(days=date.today().weekday())
+        calendar_cols = st.columns(7)
+        weekdays_tr = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"]
+        for day_index, calendar_col in enumerate(calendar_cols):
+            calendar_date = week_start + timedelta(days=day_index)
+            day_tasks = [task for task in tasks if task.get("date") == calendar_date.isoformat()]
+            done_for_day = sum(bool(task.get("done")) for task in day_tasks)
+            title_lines = "".join(f"<li>{html.escape(task.get('subject', 'Ders'))}: {html.escape(task.get('topic') or task.get('target') or 'Çalışma')}</li>" for task in day_tasks[:2])
+            if len(day_tasks) > 2:
+                title_lines += f"<li>+{len(day_tasks) - 2} görev</li>"
+            if not title_lines:
+                title_lines = "<li class='calendar-quiet'>Boş</li>"
+            today_class = " is-today" if calendar_date == date.today() else ""
+            calendar_col.markdown(f"<div class='calendar-day{today_class}'><small>{weekdays_tr[day_index]}</small><strong>{calendar_date.day:02d}</strong><span>{done_for_day}/{len(day_tasks)} tamam</span><ul>{title_lines}</ul></div>", unsafe_allow_html=True)
         if tasks:
             completed = sum(bool(task.get("done")) for task in tasks)
             st.progress(completed / max(1, len(tasks)), text=f"Tamamlanan görevler: {completed}/{len(tasks)}")
+            overdue_tasks = sorted([task for task in tasks if not task.get("done") and task.get("date", "") < date.today().isoformat()], key=lambda item: item.get("date", ""))
+            if overdue_tasks:
+                st.warning(f"{len(overdue_tasks)} tamamlanmamış görev geçmiş tarihte kaldı.")
+                if st.button("🗓️ Gecikenleri hafifçe plana dağıt", key="reschedule_overdue"):
+                    for index, task in enumerate(overdue_tasks):
+                        task_day = date.today() + timedelta(days=index // 3)
+                        task["date"] = task_day.isoformat()
+                        task["day"] = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"][task_day.weekday()]
+                    write_user_json(user_id, "study_tasks", tasks)
+                    st.success("Geciken görevler günde en fazla üç görev olacak şekilde yeniden planlandı.")
+                    st.rerun()
             today_tasks = [task for task in tasks if task.get("date") == date.today().isoformat()]
             st.markdown("**Bugünün görevleri**")
             for task in today_tasks:
@@ -1003,7 +1261,24 @@ def main():
         if results:
             try:
                 import pandas as pd
-                frame = pd.DataFrame(results).sort_values("date")
+                ordered_results = sorted(results, key=lambda item: item.get("date", ""))
+                latest = ordered_results[-1]
+                sections = [("Türkçe", 40), ("Matematik", 40), ("Sosyal", 20), ("Fen", 20)]
+                weakest = min(sections, key=lambda item: float(latest.get(item[0], 0)) / item[1])
+                st.markdown(f"<div class='soft-card' style='margin:.8rem 0 1rem;border-left:4px solid #df7952'><span class='section-kicker'>DENEME TEŞHİSİ</span><p style='margin-top:.35rem'>Son denemede en çok gelişim alanı <b>{weakest[0]}</b> görünüyor ({float(latest.get(weakest[0], 0)):.2f}/{weakest[1]} net). Bu hafta bu derse iki kısa tekrar oturumu ekle.</p></div>", unsafe_allow_html=True)
+                latest_frame = pd.DataFrame([{"Ders": name, "Net": latest.get(name, 0), "Kalan net": maximum} for name, maximum in sections])
+                st.bar_chart(latest_frame, x="Ders", y="Net", color="#d45a42", height=230)
+                if len(ordered_results) > 1:
+                    previous = ordered_results[-2]
+                    delta = float(latest.get("Toplam", 0)) - float(previous.get("Toplam", 0))
+                    st.metric("Son denemeden değişim", f"{'+' if delta >= 0 else ''}{delta:.2f} net", help=f"{previous.get('date')} → {latest.get('date')}")
+                mistake_counts = {}
+                for mistake in read_user_json(user_id, "wrong_questions", []):
+                    mistake_counts[mistake.get("error_kind", "Diğer")] = mistake_counts.get(mistake.get("error_kind", "Diğer"), 0) + 1
+                if mistake_counts:
+                    common_error = max(mistake_counts, key=mistake_counts.get)
+                    st.caption(f"Soru laboratuvarında en sık görülen hata: {common_error} ({mistake_counts[common_error]} kayıt).")
+                frame = pd.DataFrame(ordered_results)
                 st.line_chart(frame.set_index("date")[["Türkçe", "Matematik", "Sosyal", "Fen", "Toplam"]])
                 st.dataframe(frame.iloc[::-1], use_container_width=True, hide_index=True)
                 if st.button("Deneme kayıtlarını temizle", key="clear_exam_results"):
