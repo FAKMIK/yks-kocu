@@ -155,10 +155,10 @@ def password_digest(password: str, salt: str) -> str:
 
 def create_account(username: str, password: str):
     username = username.strip()
-    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,32}", username):
-        return None, "Kullanıcı adı 3–32 karakter olmalı; İngilizce harf, rakam, nokta, tire veya alt çizgi kullanın."
-    if len(password) < 10:
-        return None, "Parola en az 10 karakter olmalı."
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,10}", username):
+        return None, "Kullanıcı adı 3–10 karakter olmalı; İngilizce harf, rakam, nokta, tire veya alt çizgi kullanın."
+    if not re.fullmatch(r"\d{4}", password):
+        return None, "Parola tam olarak 4 rakamdan oluşmalı."
     salt = os.urandom(16).hex()
     try:
         with db_connect() as db:
@@ -682,6 +682,7 @@ def render_login() -> None:
         [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#eee6dd!important; }
         [data-testid="stTabs"] [data-baseweb="tab"] { color:#5c5351!important; }
         [data-testid="stTabs"] [aria-selected="true"] { background:white!important;color:#a53c31!important; }
+        .auth-feature-strip span { background:#ffffffb8!important;border-color:#d8c9b9!important;color:#544944!important; }
         '''
     st.markdown(f'''<style>
     html,body,[data-testid="stAppViewContainer"] {{ background:#151417 !important; }}
@@ -698,21 +699,30 @@ def render_login() -> None:
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0d!important;border:1px solid #ffffff1c; }}
     [data-testid="stTabs"] [data-baseweb="tab"] {{ color:#dbe4e8!important; }}
     [data-testid="stTabs"] [aria-selected="true"] {{ color:#142a30!important; }}
-    .auth-brand {{ display:flex;align-items:center;justify-content:center;gap:.65rem;color:#f5faf8;font-size:.84rem;font-weight:800;letter-spacing:.17em;margin-bottom:1.1rem;text-shadow:0 2px 15px #0008; }}
-    .auth-brand span {{ display:grid;place-items:center;width:37px;height:37px;border-radius:13px;background:#e7f4ee;color:#1a3b35;font-size:1.1rem;letter-spacing:0; }}
-    .auth-title {{ color:#f8faf9;font-size:1.72rem;font-weight:760;letter-spacing:-.035em;text-align:center;margin:.2rem 0 .4rem; }}
-    .auth-copy {{ color:#cbd7d9;text-align:center;font-size:.92rem;margin:0 0 1.35rem; }}
+    .auth-brand {{ display:flex;align-items:center;justify-content:center;gap:.7rem;color:#fff8ee;font-size:.82rem;font-weight:850;letter-spacing:.17em;margin:.25rem 0 1rem;text-shadow:0 2px 15px #0008; }}
+    .auth-brand span {{ display:grid;place-items:center;width:42px;height:42px;border-radius:15px;background:linear-gradient(145deg,#ffe39a,#ff9d50 48%,#dd4338);color:#381d1c;font-size:1.15rem;letter-spacing:0;box-shadow:0 0 28px #f1754666,inset 0 1px 0 #fff9; }}
+    .auth-title {{ color:#fffaf5;font-size:clamp(1.7rem,4vw,2.15rem);font-weight:820;letter-spacing:-.045em;text-align:center;margin:.25rem 0 .45rem;text-shadow:0 3px 28px #ff684233; }}
+    .auth-copy {{ color:#d4d1d0;text-align:center;font-size:.93rem;line-height:1.55;margin:0 0 .9rem; }}
+    .auth-feature-strip {{ display:flex;flex-wrap:wrap;justify-content:center;gap:.42rem;margin:0 0 1.2rem; }}
+    .auth-feature-strip span {{ padding:.37rem .58rem;border:1px solid #ffffff20;border-radius:999px;background:#ffffff09;color:#e9d8c9;font-size:.68rem;font-weight:650;letter-spacing:.015em; }}
+    [data-testid="stForm"] [data-baseweb="input"] {{ border-radius:14px!important;background:#ffffff08!important;box-shadow:0 5px 18px #0002; }}
+    [data-testid="stForm"] input {{ border-radius:14px!important; }}
+    [data-testid="stForm"] input:focus {{ border-color:#ffb45d!important;box-shadow:0 0 0 2px #ffb45d33!important; }}
+    [data-testid="stForm"] button {{ background:linear-gradient(100deg,#f2c56d,#fa8b4c 52%,#e44d42)!important;color:#261719!important;box-shadow:0 8px 24px #e1513d33,inset 0 1px 0 #ffffff90!important; }}
+    [data-testid="stForm"] button:disabled {{ opacity:1!important;color:#512b22!important;filter:saturate(.78); }}
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0c!important;border:1px solid #ffffff1d;padding:5px!important; }}
+    [data-testid="stTabs"] [data-baseweb="tab"] {{ border-radius:11px!important; }}
     @media(max-width:600px) {{ [data-testid="stMainBlockContainer"]{{padding:3vh 1rem!important}} [data-testid="stVerticalBlockBorderWrapper"]{{padding:1.2rem!important;border-radius:20px}} }}
     {auth_theme_css}
     </style>''', unsafe_allow_html=True)
     st.markdown('<div class="auth-brand"><span>J</span> JARVIS · YKS STUDIO</div>', unsafe_allow_html=True)
     with st.container(border=True):
-        st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">Kişisel çalışma alanına giriş yap veya hesabını oluştur.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">YKS yolculuğunu planla, ilerlemeni takip et ve her gün küçük bir adım daha at.</div><div class="auth-feature-strip"><span>✦ Kişisel çalışma planı</span><span>◷ Günlük odak takibi</span><span>⌁ Güvenli hafıza</span></div>', unsafe_allow_html=True)
         login_tab, register_tab = st.tabs(["Giriş yap", "Hesap oluştur"])
         with login_tab:
             with st.form("login_form"):
-                username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi")
-                password = st.text_input("Parola", type="password", placeholder="Parolan")
+                username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi", max_chars=32)
+                password = st.text_input("Parola", type="password", placeholder="Parolan", max_chars=128)
                 login = st.form_submit_button("Giriş yap  →", use_container_width=True)
             if login:
                 user_id = authenticate(username, password)
@@ -724,9 +734,9 @@ def render_login() -> None:
                     st.rerun()
         with register_tab:
             with st.form("register_form"):
-                new_username = st.text_input("Kullanıcı adı", placeholder="3–32 karakter", key="register_username")
-                new_password = st.text_input("Parola", type="password", placeholder="En az 10 karakter", key="register_password")
-                confirm_password = st.text_input("Parolayı tekrar yaz", type="password", placeholder="Parola onayı")
+                new_username = st.text_input("Kullanıcı adı", placeholder="3–10 karakter", max_chars=10, key="register_username")
+                new_password = st.text_input("4 rakamlı parola", type="password", placeholder="Örn. 0427", max_chars=4, key="register_password", help="Tam 4 rakam girin. Başında sıfır olabilir.")
+                confirm_password = st.text_input("Parolayı tekrar yaz", type="password", placeholder="4 rakamı tekrar girin", max_chars=4)
                 register = st.form_submit_button("Hesap oluştur  →", use_container_width=True)
             if register:
                 if new_password != confirm_password:
