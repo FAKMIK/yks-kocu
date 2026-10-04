@@ -50,7 +50,6 @@ except ImportError:
 
 
 # Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
-st.set_page_config(page_title="YKS Koçu", page_icon="📚", layout="wide")
 st.set_page_config(page_title="ANKA · YKS Çalışma Stüdyosu", page_icon="🔥", layout="wide")
 
 st.markdown("""
@@ -873,23 +872,12 @@ def render_dashboard(user_id: int, username: str) -> None:
     st.markdown(f"""
     <section class="hero-card">
       <div class="hero-copy">
-        <div class="hero-eyebrow">JARVIS · KİŞİSEL YKS STÜDYOSU</div>
       <div class="hero-eyebrow">ANKA · KİŞİSEL YKS STÜDYOSU</div>
         <h1>Selam {safe_name}.<br>Bugün hedeflerine bir adım daha.</h1>
         <p>Planını sade tut, ilerlemeni gör ve sıradaki doğru işe odaklan. Küçük ama düzenli adımlar büyük fark yaratır.</p>
         <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y} &nbsp;·&nbsp; Bugünün çalışma alanı</span>
         <span class="hero-pill" style="margin-left:.45rem">🎓 &nbsp; {html.escape(exam_countdown)}</span>
       </div>
-      <svg class="hero-art" viewBox="0 0 300 220" role="img" aria-label="Çalışma hedefi ve ilerleme çizimi">
-        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#8ef0d0"/><stop offset="1" stop-color="#ffce73"/></linearGradient></defs>
-        <circle cx="167" cy="108" r="86" fill="#ffffff0d" stroke="#ffffff25"/>
-        <circle cx="167" cy="108" r="66" fill="#ffffff0a" stroke="#ffffff20"/>
-        <rect x="105" y="56" width="120" height="108" rx="18" fill="#f7f9ff"/>
-        <path d="M128 84h65M128 99h45" stroke="#cbd5e7" stroke-width="7" stroke-linecap="round"/>
-        <path d="M128 127l16 14 34-37" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="229" cy="54" r="14" fill="#ffce73"/><path d="M229 46v16M221 54h16" stroke="#20365d" stroke-width="3" stroke-linecap="round"/>
-        <circle cx="90" cy="160" r="8" fill="#79e0bd"/><circle cx="243" cy="148" r="6" fill="#b8c7ff"/>
-      </svg>
       <svg class="hero-art phoenix-hero" viewBox="0 0 300 220" role="img" aria-label="Kızıl ve mor alevlerden doğan Anka kuşu çizimi">
         <defs><linearGradient id="phoenixWing" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffc274"/><stop offset=".48" stop-color="#ff665f"/><stop offset="1" stop-color="#c878ff"/></linearGradient><radialGradient id="phoenixAura"><stop stop-color="#ff9970" stop-opacity=".45"/><stop offset="1" stop-color="#a443d3" stop-opacity="0"/></radialGradient></defs>
         <circle cx="154" cy="113" r="101" fill="url(#phoenixAura)"/><circle cx="154" cy="113" r="76" fill="#ffffff08" stroke="#ffffff25"/>
@@ -985,7 +973,6 @@ def render_dashboard(user_id: int, username: str) -> None:
             for task_index, item in enumerate(today_tasks[:5]):
                 label = " · ".join(part for part in [item.get("subject", "Ders"), item.get("topic", ""), item.get("target", "")] if part)
                 state = "✓" if item.get("done") else "○"
-                st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#3858d6'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#c94355'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
                 if not item.get("done"):
                     task_actions = st.columns(2)
@@ -1092,7 +1079,6 @@ def phoenix_mark_svg(size: int = 36) -> str:
 
 def render_login() -> None:
     theme_picker_columns = st.columns([1, 1, 1])
-    theme_mode = theme_picker_columns[1].selectbox("Tema", ["Açık", "Koyu"], key="theme_mode", label_visibility="collapsed")
     theme_mode = theme_picker_columns[1].selectbox("Tema", ["Açık", "Koyu"], index=1, key="theme_mode", label_visibility="collapsed")
     background_path = Path(__file__).resolve().parent / "assets" / "login_mountains.png"
     background_rule = ""
@@ -1154,8 +1140,6 @@ def render_login() -> None:
     [data-testid="stRadio"] [role="radiogroup"] label p {{ color:inherit!important; }}
     @media(max-width:600px) {{ [data-testid="stMainBlockContainer"]{{padding:3vh 1rem!important}} [data-testid="stVerticalBlockBorderWrapper"]{{padding:1.2rem!important;border-radius:20px}} }}
     {auth_theme_css}
-    </style>''', unsafe_allow_html=True)
-    st.markdown('<div class="auth-brand"><span>J</span> JARVIS · YKS STUDIO</div>', unsafe_allow_html=True)
     </style>''', unsafe_allow_html=True)
     st.markdown("""<style>
     html,body,[data-testid="stAppViewContainer"] { background:#110e19!important; }
@@ -1227,8 +1211,6 @@ def main():
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
     with st.sidebar:
-        st.markdown('<div class="side-brand"><span class="side-mark">J</span><span>JARVIS <small style="display:block;color:#91a3bf;font-weight:500;letter-spacing:.12em">YKS STUDIO</small></span></div>', unsafe_allow_html=True)
-        st.header(f"👤 {st.session_state.get('username', 'Kullanıcı')}")
         st.markdown(f'<div class="side-brand"><span class="side-mark">{phoenix_mark_svg(25)}</span><span>ANKA <small style="display:block;color:#beaac9;font-weight:550;letter-spacing:.15em">YKS ÇALIŞMA STÜDYOSU</small></span></div>', unsafe_allow_html=True)
         safe_sidebar_name = html.escape(st.session_state.get("username", "Kullanıcı"), quote=True)
         st.markdown(f'<div class="sidebar-profile"><span class="sidebar-avatar">{safe_sidebar_name[:1].upper()}</span><span><b>{safe_sidebar_name}</b><small>Çalışma alanın aktif</small></span><i></i></div>', unsafe_allow_html=True)
@@ -1236,7 +1218,6 @@ def main():
         st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
                            mime="application/json", use_container_width=True)
-        theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], key="theme_mode")
         theme_mode = st.selectbox("🎨 Tema", ["Açık", "Koyu"], index=1, key="theme_mode")
         st.divider()
 
@@ -1328,9 +1309,6 @@ def main():
     st.markdown("""<style>
     [data-testid="stAppViewContainer"] .main { position:relative; }
     [data-testid="stMainBlockContainer"] { position:relative; }
-    .hero-art { filter:drop-shadow(0 0 18px #ffb74942); }
-    [data-testid="stAppViewContainer"]::before { content:"";position:fixed;z-index:0;pointer-events:none;right:-105px;top:115px;width:240px;height:240px;border-radius:50%;opacity:.16;background:radial-gradient(circle,#fff7dc 0 5%,#ffc45b 6% 9%,#e34636 10% 13%,transparent 14% 28%,#e3463655 29% 30%,transparent 31%);box-shadow:0 0 60px #f15b3340; }
-    @media(max-width:760px) { [data-testid="stAppViewContainer"]::before { width:130px;height:130px;right:-65px;top:80px;opacity:.11; } }
     .app-masthead { display:flex;align-items:center;justify-content:space-between;margin:-.55rem 0 1.2rem;padding:.7rem .95rem;border:1px solid #ffffff13;border-radius:15px;background:linear-gradient(100deg,#24182dba,#291621a8);color:#f6eefa;box-shadow:0 8px 30px #13091819; }
     .app-masthead-brand { display:flex;align-items:center;gap:.65rem;font-size:.74rem;font-weight:820;letter-spacing:.16em; }
     .app-masthead-mark { display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:linear-gradient(140deg,#a847ca,#dd475b 68%,#f08a53);color:white; }
@@ -1360,8 +1338,6 @@ def main():
     @media(prefers-reduced-motion:reduce) { .phoenix-hero { animation:none!important; } }
     @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.phoenix-hero { min-width:112px!important;width:30%!important; } }
     </style>""", unsafe_allow_html=True)
-    st.title("YKS ÇALIŞMA STÜDYOSU")
-    st.caption("Kişisel çalışma alanın · planla, uygula, ilerle")
     st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'><span class='app-masthead-mark'>{phoenix_mark_svg(22)}</span> ANKA · YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
 
     if not api_ready:
