@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 
 import requests
 import streamlit as st
+import pandas as pd
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -582,13 +583,27 @@ def show_program_image(plan_text: str, key: str) -> None:
 
 
 @st.cache_data(ttl=900, show_spinner=False)
+def fetch_city_coordinates(city: str) -> tuple[float, float]:
+    """Open-Meteo geocoder resolves any Turkish province by name."""
+    response = requests.get("https://geocoding-api.open-meteo.com/v1/search",
+                            params={"name": city, "count": 10, "language": "tr", "format": "json", "countryCode": "TR"}, timeout=8)
+    response.raise_for_status()
+    results = response.json().get("results", [])
+    if not results:
+        raise ValueError("Şehir bulunamadı")
+    exact = next((item for item in results if item.get("name", "").casefold() == city.casefold()), results[0])
+    return exact["latitude"], exact["longitude"]
+
+
+@st.cache_data(ttl=900, show_spinner=False)
 def fetch_weather(city: str, latitude: float, longitude: float) -> dict:
     """Open-Meteo hava durumu; API anahtarı istemez."""
     response = requests.get(
         "https://api.open-meteo.com/v1/forecast",
         params={"latitude": latitude, "longitude": longitude,
                 "current": "temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code",
-                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "hourly": "temperature_2m,precipitation_probability",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
                 "timezone": "auto", "forecast_days": 1}, timeout=8)
     response.raise_for_status()
     return response.json()
@@ -629,28 +644,121 @@ def apply_home_scene(scene: str) -> None:
         st.session_state[f"home_device_{name}"] = enabled
 
 
+def render_ypt_bridge(user_id: int) -> None:
+    st.markdown("# ⏱️ YPT çalışma süresi")
+    st.caption("YPT kayıtlarını buradaki ders ve gün grafikleriyle birlikte görüntüle.")
+    local_rows = read_user_json(user_id, "study_sessions", [])
+    ypt_rows = read_user_json(user_id, "ypt_sessions", [])
+    today_key = date.today().isoformat()
+    local_today = sum(int(row.get("minutes", 0)) for row in local_rows if row.get("date") == today_key)
+    ypt_today = sum(int(row.get("minutes", 0)) for row in ypt_rows if row.get("date") == today_key)
+    week_start = (date.today() - timedelta(days=6)).isoformat()
+    local_week = sum(int(row.get("minutes", 0)) for row in local_rows if week_start <= row.get("date", "") <= today_key)
+    ypt_week = sum(int(row.get("minutes", 0)) for row in ypt_rows if week_start <= row.get("date", "") <= today_key)
+    summary = st.columns(4)
+    summary[0].metric("Bugün · bu site", f"{local_today // 60} sa {local_today % 60:02d} dk")
+    summary[1].metric("Bugün · YPT", f"{ypt_today // 60} sa {ypt_today % 60:02d} dk")
+    summary[2].metric("7 gün · bu site", f"{local_week // 60} sa {local_week % 60:02d} dk")
+    summary[3].metric("7 gün · YPT", f"{ypt_week // 60} sa {ypt_week % 60:02d} dk")
+
+    with st.container(border=True):
+        st.markdown("### 🔗 YPT verisini içeri aktar")
+        st.write("YPT için herkese açık resmî bir veri senkronizasyon API'si bulamadım. Bu yüzden hesap parolanı isteyen veya özel uç noktaları kullanan bağlantı kurmuyorum. Uygulama CSV dışa aktarımı sunuyorsa dosyanı burada güvenle içe aktarabilirsin; dosyanın kendisi saklanmaz, yalnızca çalışma satırları hesabına kaydedilir.")
+        st.link_button("Resmî YPT sitesini aç", "https://www.yeolpumta.com/")
+        st.download_button("Örnek CSV şablonu indir", "date,subject,minutes\n2026-10-04,Matematik,45\n", "ypt_sablon.csv", "text/csv", key="ypt_csv_template")
+        uploaded = st.file_uploader("YPT'den dışa aktarılan CSV dosyası", type=["csv"], key="ypt_csv_upload")
+        if uploaded:
+            try:
+                frame = pd.read_csv(io.BytesIO(uploaded.getvalue()))
+                if frame.empty or len(frame.columns) < 3:
+                    st.warning("Dosyada tarih, ders ve çalışma süresi alanları bulunamadı. Başlık satırlı CSV şablonunu kullanabilirsin.")
+                else:
+                    headers = list(frame.columns)
+                    normalized_headers = {str(col).casefold(): col for col in headers}
+                    date_guess = next((i for i, col in enumerate(headers) if any(word in str(col).casefold() for word in ("date", "tarih", "day"))), 0)
+                    subject_guess = next((i for i, col in enumerate(headers) if any(word in str(col).casefold() for word in ("subject", "ders", "course"))), min(1, len(headers)-1))
+                    duration_guess = next((i for i, col in enumerate(headers) if any(word in str(col).casefold() for word in ("minute", "dakika", "duration", "time", "süre"))), len(headers)-1)
+                    m1, m2, m3 = st.columns(3)
+                    date_col = m1.selectbox("Tarih sütunu", headers, index=date_guess, key="ypt_date_column")
+                    subject_col = m2.selectbox("Ders sütunu", headers, index=subject_guess, key="ypt_subject_column")
+                    duration_col = m3.selectbox("Süre sütunu", headers, index=duration_guess, key="ypt_duration_column")
+                    duration_unit = st.radio("Süre biçimi", ["Dakika", "Saat", "Saniye", "Saat:Dakika:Saniye"], horizontal=True, key="ypt_duration_unit")
+                    st.dataframe(frame.head(8), use_container_width=True, hide_index=True)
+                    if st.button("YPT çalışma kayıtlarını ekle", key="import_ypt_csv", use_container_width=True):
+                        imported = list(ypt_rows)
+                        known = {row.get("id") for row in imported}
+                        added = 0
+                        for _, row in frame.iterrows():
+                            parsed_date = pd.to_datetime(row[date_col], errors="coerce")
+                            raw_duration = str(row[duration_col]).strip()
+                            try:
+                                if duration_unit == "Saat:Dakika:Saniye":
+                                    parts = [float(part) for part in raw_duration.split(":")]
+                                    seconds = sum(part * (60 ** (len(parts)-index-1)) for index, part in enumerate(parts))
+                                    minutes_value = int(round(seconds / 60))
+                                else:
+                                    numeric = float(raw_duration.replace(",", "."))
+                                    multiplier = {"Dakika": 1, "Saat": 60, "Saniye": 1/60}[duration_unit]
+                                    minutes_value = int(round(numeric * multiplier))
+                            except (ValueError, TypeError):
+                                continue
+                            if pd.isna(parsed_date) or minutes_value <= 0:
+                                continue
+                            day_text = parsed_date.date().isoformat()
+                            subject_text = str(row[subject_col]).strip() or "YPT çalışma"
+                            signature = hashlib.sha256(f"{day_text}|{subject_text}|{minutes_value}".encode("utf-8")).hexdigest()[:20]
+                            if signature in known:
+                                continue
+                            imported.append({"id": signature, "date": day_text, "subject": subject_text,
+                                             "minutes": minutes_value, "source": "YPT", "note": "YPT CSV içe aktarımı"})
+                            known.add(signature)
+                            added += 1
+                        write_user_json(user_id, "ypt_sessions", imported)
+                        st.success(f"{added} yeni YPT oturumu aktarıldı. Aynı tarih, ders ve süreye sahip satırlar tekrar eklenmedi.")
+                        st.rerun()
+            except Exception:
+                st.warning("CSV okunamadı. Dosyanın UTF-8 kodlamasında ve başlık satırlı olduğundan emin ol.")
+
+    all_ypt = sorted(ypt_rows, key=lambda row: row.get("date", ""), reverse=True)
+    if all_ypt:
+        st.markdown("### 📚 İçe aktarılan YPT kayıtları")
+        st.dataframe([{"Tarih": row.get("date"), "Ders": row.get("subject"), "Dakika": row.get("minutes")} for row in all_ypt[:100]],
+                     use_container_width=True, hide_index=True)
+        if st.button("İçe aktarılan YPT kayıtlarını sil", key="clear_ypt_imports"):
+            write_user_json(user_id, "ypt_sessions", [])
+            st.rerun()
+    if not ypt_rows:
+        st.info("YPT uygulaman CSV dışa aktarımı vermiyorsa ekran görüntüsü ya da örnek dosyayı paylaş; uygun aktarım biçimini birlikte netleştirelim. Şimdilik bu sitedeki seansların YPT toplamından ayrı tutuluyor.")
+
+
 def render_world_panel() -> None:
     st.markdown("# 🌐 Dünya Paneli")
-    st.caption("Çalışma alanının yanında gündem, hava, piyasalar ve akıllı yaşam araçları.")
-    cities = {"İstanbul": (41.0082, 28.9784), "Ankara": (39.9334, 32.8597), "İzmir": (38.4237, 27.1428),
-              "Bursa": (40.1885, 29.0610), "Antalya": (36.8969, 30.7133), "Adana": (37.0000, 35.3213),
-              "Eskişehir": (39.7667, 30.5256), "Trabzon": (41.0027, 39.7168)}
+    st.caption("Tek ekranda bulunduğun şehir, gündem, finans ve akıllı yaşam.")
+    provinces = ["Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkâri", "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir", "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir", "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman", "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Düzce"]
     top_left, top_right = st.columns([1.5, 1])
     with top_left:
         st.markdown("### ☁️ Hava durumu")
-        city = st.selectbox("Şehir", list(cities), key="world_weather_city")
+        city = st.selectbox("İl seç · Türkiye'nin 81 ili", provinces, key="world_weather_city")
     with top_right:
         st.markdown("### 🛰️ Sistem")
         st.metric("Kontrol paneli", "Çevrimiçi", help="Bağlantı gerektiren kartlar ihtiyaç halinde canlı veriyi getirir.")
     try:
-        weather = fetch_weather(city, *cities[city])
+        weather = fetch_weather(city, *fetch_city_coordinates(city))
         current, daily = weather["current"], weather["daily"]
-        weather_cols = st.columns(4)
-        weather_cols[0].metric(f"{city} · sıcaklık", f"{current['temperature_2m']}°C", f"Hissedilen {current['apparent_temperature']}°C")
-        weather_cols[1].metric("Nem", f"%{current['relative_humidity_2m']}")
-        weather_cols[2].metric("Rüzgâr", f"{current['wind_speed_10m']} km/sa")
-        weather_cols[3].metric("Yağış olasılığı", f"%{daily['precipitation_probability_max'][0]}",
-                               f"En düşük {daily['temperature_2m_min'][0]}° · en yüksek {daily['temperature_2m_max'][0]}°")
+        wx, forecast = st.columns([1, 1.6])
+        with wx:
+            st.markdown(f"<div style='min-height:225px;padding:1.5rem;border-radius:24px;background:radial-gradient(circle at 82% 18%,#ffc078aa,transparent 28%),linear-gradient(135deg,#b83529,#e16944 55%,#322f4a);color:white;box-shadow:0 18px 45px #7f302533'><div style='font-size:.9rem;letter-spacing:.12em;text-transform:uppercase;opacity:.85'>BUGÜN · {html.escape(city.upper())}</div><div style='font-size:4.4rem;font-weight:800;line-height:1.2'>{current['temperature_2m']}°</div><div style='font-size:1rem'>Hissedilen {current['apparent_temperature']}°C</div><div style='margin-top:1.2rem;opacity:.86'>☁ Nem %{current['relative_humidity_2m']} &nbsp; · &nbsp; 💨 {current['wind_speed_10m']} km/sa</div></div>", unsafe_allow_html=True)
+        with forecast:
+            st.markdown(f"#### {city} · günlük görünüm")
+            st.metric("Yağış olasılığı", f"%{daily['precipitation_probability_max'][0]}", f"Günün en düşüğü {daily['temperature_2m_min'][0]}° · en yükseği {daily['temperature_2m_max'][0]}°")
+            hours = weather.get("hourly", {})
+            if hours.get("time"):
+                current_hour = datetime.now().hour
+                hour_rows = [{"Saat": datetime.fromisoformat(t).strftime("%H:%M"), "Sıcaklık °C": temp}
+                             for t, temp in zip(hours["time"], hours["temperature_2m"]) if datetime.fromisoformat(t).hour >= current_hour]
+                if hour_rows:
+                    st.line_chart(pd.DataFrame(hour_rows).set_index("Saat"), height=185, color="#d64d36")
+            st.caption(f"🌅 {daily['sunrise'][0][-5:]} gün doğumu  ·  🌇 {daily['sunset'][0][-5:]} gün batımı")
     except Exception:
         st.info("Hava durumu şu an alınamadı. İnternet bağlantısını kontrol edip biraz sonra tekrar deneyin.")
 
@@ -1101,7 +1209,7 @@ def main():
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
         active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme",
-                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
+                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "⏱️ YPT Saatlerim", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
         st.markdown("<div class='side-nav-label'>DURUM</div>", unsafe_allow_html=True)
@@ -1112,6 +1220,8 @@ def main():
         render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
     if active_view == "🌐 Dünya Paneli":
         render_world_panel()
+    if active_view == "⏱️ YPT Saatlerim":
+        render_ypt_bridge(user_id)
     if active_view == "📝 Soru Analizi":
         st.subheader("Soru hata laboratuvarı")
         st.caption("Yanlış soruyu çözümle, hata türünü kaydet ve aralıklı tekrar kuyruğuna al.")
