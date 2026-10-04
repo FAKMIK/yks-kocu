@@ -1119,11 +1119,25 @@ def main():
         camps = {
             "Matematik · Rehber Matematik": {"key": "rehber_tyt_matematik", "title": "49 Günde TYT Matematik", "kind": "playlist", "id": "PLVoSZ0D0CB3pXrBmYoppjf2fwi3vqF-vY", "url": "https://www.youtube.com/playlist?list=PLVoSZ0D0CB3pXrBmYoppjf2fwi3vqF-vY", "note": "Resmî Rehber Matematik kamplarındaki 49 günlük TYT matematik listesi."},
             "Geometri · Rehber Matematik": {"key": "rehber_tyt_geometri", "title": "TYT + AYT Geometri kampı", "kind": "playlist", "id": "PLVoSZ0D0CB3o0kCERon9daQQTbyyin4Ne", "url": "https://www.youtube.com/playlist?list=PLVoSZ0D0CB3o0kCERon9daQQTbyyin4Ne", "note": "Rehber Matematik'in resmî geometri kamp oynatma listesi."},
+            "Matematik · Eyüp B": {"key": "eyup_b_tyt_matematik", "title": "TYT Matematik · Eyüp B", "kind": "video", "id": "yh6xfXWRvVE", "url": "https://www.youtube.com/watch?v=yh6xfXWRvVE", "note": "Eyüp B Matematik Geometri kanalından TYT temel kavramlar dersi. Video içinden kanaldaki TYT serisine devam edebilirsin."},
+            "Matematik · Bıyıklı Matematik": {"key": "biyikli_tyt_matematik", "title": "TYT Matematik kampı · Bıyıklı Matematik", "kind": "search", "url": "https://www.youtube.com/results?search_query=B%C4%B1y%C4%B1kl%C4%B1+Matematik+TYT+Matematik+Kamp%C4%B1", "note": "Bıyıklı Matematik'in TYT matematik kamp ve konu anlatımlarını YouTube'da aç."},
+            "Matematik · Mert Hoca": {"key": "mert_hoca_tyt_matematik", "title": "TYT Matematik kampı · Mert Hoca", "kind": "search", "url": "https://www.youtube.com/results?search_query=Mert+Hoca+TYT+Matematik+Kamp%C4%B1", "note": "Mert Hoca'nın TYT kamp serilerine YouTube'dan ulaş."},
             "Türkçe · Rüştü Hoca": {"key": "rustu_tyt_turkce", "title": "49 Günde TYT Türkçe kamp başlangıcı", "kind": "video", "id": "8u62QLBnFqY", "url": "https://www.youtube.com/watch?v=8u62QLBnFqY", "note": "Rehber Matematik ve Rüştü Hoca'nın ortak TYT Matematik–Türkçe kamp duyurusu."},
+            "Türkçe · Kadir Gümüş": {"key": "kadir_gumus_tyt_turkce", "title": "TYT Türkçe kampı · Kadir Gümüş", "kind": "search", "url": "https://www.youtube.com/results?search_query=Kadir+G%C3%BCm%C3%BC%C5%9F+TYT+T%C3%BCrk%C3%A7e+Kamp%C4%B1", "note": "Benim Hocam / Kadir Gümüş TYT Türkçe ders ve kamp videoları."},
             "Fizik · VIP Fizik": {"key": "vip_tyt_fizik", "title": "2026 TYT Fizik kampı", "kind": "playlist", "id": "PL9mxuVBieFNHWQSftkoEu7cuEefE39qSB", "url": "https://www.youtube.com/playlist?list=PL9mxuVBieFNHWQSftkoEu7cuEefE39qSB", "note": "VIP Fizik'in resmî bağlantı sayfasındaki TYT kamp oynatma listesi."},
+            "Fizik · Özcan Aykın": {"key": "ozcan_aykin_tyt_fizik", "title": "55 Günde TYT Fizik kampı", "kind": "video", "id": "7aVrdQ7uSQ4", "url": "https://www.youtube.com/watch?v=7aVrdQ7uSQ4", "note": "Özcan Aykın Fizik kanalındaki kampın ilk dersi. Oynatıcıdan serinin devamına geçebilirsin."},
+            "Fizik · Fizikfinito": {"key": "fizikfinito_tyt_fizik", "title": "TYT Fizik kampı · Fizikfinito", "kind": "search", "url": "https://www.youtube.com/results?search_query=Fizikfinito+TYT+Fizik+Kamp%C4%B1", "note": "Fizikfinito'nun TYT fizik kamp ve konu anlatımlarını YouTube'da aç."},
+            "Fizik · Altuğ Güneş": {"key": "altug_gunes_tyt_fizik", "title": "TYT Fizik kampı · Altuğ Güneş", "kind": "search", "url": "https://www.youtube.com/results?search_query=Altu%C4%9F+G%C3%BCne%C5%9F+TYT+Fizik+Kamp%C4%B1", "note": "Altuğ Güneş'in TYT fizik kamp videolarını YouTube'da aç."},
+            "Fizik · Fizikle Barış": {"key": "fizikle_baris_tyt_fizik", "title": "TYT Fizik kampı · Fizikle Barış", "kind": "search", "url": "https://www.youtube.com/results?search_query=Fizikle+Bar%C4%B1%C5%9F+TYT+Fizik+Kamp%C4%B1", "note": "Fizikle Barış'ın TYT fizik kamp serilerine YouTube'dan ulaş."},
+            "Kimya · Kimya Adası": {"key": "kimya_adasi_tyt", "title": "34 Günde TYT Kimya kampı · 2027", "kind": "video", "id": "X72KNgNUjp8", "url": "https://www.youtube.com/watch?v=X72KNgNUjp8", "note": "Kimya Adası'nın kamp açılış dersi; açıklamasında 34 günlük TYT kamp oynatma listesi yer alıyor."},
             "Kimya · Kimya Dersleri / Sinan İhtiyaroğlu": {"key": "sinan_tyt_kimya", "title": "29 Günde TYT Kimya kampı", "kind": "playlist", "id": "PLVFnE9wUPer0", "url": "https://www.youtube.com/playlist?list=PLVFnE9wUPer0", "note": "Kimya Dersleri kanalının 2027 TYT için yayınladığı 29 günlük kamp listesi."},
+            "Kimya · Görkem Şahin": {"key": "gorkem_sahin_tyt_kimya", "title": "TYT Kimya kampı · Görkem Şahin", "kind": "search", "url": "https://www.youtube.com/results?search_query=G%C3%B6rkem+%C5%9Eahin+TYT+Kimya+Kamp%C4%B1", "note": "Görkem Şahin'in Benim Hocam kanalındaki TYT kimya ders ve kamp videoları."},
             "Coğrafya · Benim Hocam / Bayram Meral": {"key": "bayram_meral_tyt_cografya", "title": "TYT Coğrafya genel tekrar kampı", "kind": "video", "id": "PupoOcwg6pA", "url": "https://www.youtube.com/watch?v=PupoOcwg6pA", "note": "Benim Hocam kanalındaki 2026 TYT Coğrafya genel tekrar kamp videosu."},
+            "Coğrafya · Coğrafyanın Kodları": {"key": "cografyanin_kodlari_tyt", "title": "TYT Coğrafya kampı · Coğrafyanın Kodları", "kind": "search", "url": "https://www.youtube.com/results?search_query=Co%C4%9Frafyan%C4%B1n+Kodlar%C4%B1+TYT+Co%C4%9Frafya+Kamp%C4%B1", "note": "Coğrafyanın Kodları kanalındaki TYT coğrafya kamp serileri."},
             "Biyoloji · Dr. Biyoloji": {"key": "dr_biyoloji_tyt", "title": "TYT Birebir Biyoloji Kampı", "kind": "video", "id": "b5dOFdWNDLs", "url": "https://www.youtube.com/watch?v=b5dOFdWNDLs", "note": "Dr. Biyoloji kanalının TYT Birebir Biyoloji Kampı videosu; video açıklamasında kamp oynatma listesi bulunuyor."},
+            "Biyoloji · Selin Hoca": {"key": "selin_hoca_tyt_biyoloji", "title": "TYT Biyoloji kampı · Selin Hoca", "kind": "search", "url": "https://www.youtube.com/results?search_query=Selin+Hoca+TYT+Biyoloji+Kamp%C4%B1+2026", "note": "Selin Hoca'nın resmî sitesinde YKS 2026 kampı ve TYT Biyoloji içerikleri bulunuyor; YouTube'da kamp videolarını aç."},
+            "Tarih · Ramazan Yetgin": {"key": "ramazan_yetgin_tyt_tarih", "title": "TYT Tarih kampı · Ramazan Yetgin", "kind": "search", "url": "https://www.youtube.com/results?search_query=Ramazan+Yetgin+TYT+Tarih+Kamp%C4%B1", "note": "Benim Hocam / Ramazan Yetgin TYT tarih kamp ve tekrar videoları."},
+            "Felsefe · Benim Hocam": {"key": "benim_hocam_tyt_felsefe", "title": "TYT Felsefe kampı · Benim Hocam", "kind": "search", "url": "https://www.youtube.com/results?search_query=Benim+Hocam+TYT+Felsefe+Kamp%C4%B1", "note": "TYT felsefe ve din kültürü konu anlatımı ile tekrar videoları."},
         }
         selected_camp = st.selectbox("Ders ve hoca", list(camps), key="selected_tyt_camp")
         camp = camps[selected_camp]
@@ -1135,7 +1149,7 @@ def main():
         elif camp["kind"] == "video":
             st.components.v1.iframe(f"https://www.youtube-nocookie.com/embed/{camp['id']}", height=430, scrolling=False)
         else:
-            st.info("Bu hoca için YouTube'un güncel TYT kamp aramasını açıyoruz.")
+            st.info("Bu öğretmenin güncel kamp videolarını YouTube aramasında görüntüle. Seçtiğin video YouTube'da açılır.")
         st.link_button("YouTube'da aç", camp["url"], use_container_width=True)
         progress = read_user_json(user_id, "camp_progress", {})
         watched = progress.get(camp["key"], [])
@@ -1397,8 +1411,9 @@ def main():
 
         st.divider()
         st.markdown("**Ders rehberleri**")
-        st.write("Matematik: Rehber Matematik / Mert Hoca · Fizik: VIP Fizik · Kimya: Görkem Şahin · "
-                 "Biyoloji: Dr. Biyoloji · Türkçe: Rüştü Hoca · Tarih: Benim Hocam · Coğrafya: Coğrafyanın Kodları")
+        st.write("Matematik: Rehber Matematik, Eyüp B, Bıyıklı Matematik · Fizik: VIP Fizik, Özcan Aykın, Fizikfinito · "
+                 "Kimya: Kimya Adası, Görkem Şahin, Sinan İhtiyaroğlu · Biyoloji: Selin Hoca, Dr. Biyoloji · "
+                 "Türkçe: Rüştü Hoca, Kadir Gümüş · Tarih: Ramazan Yetgin · Coğrafya: Bayram Meral, Coğrafyanın Kodları")
 
     if active_view == "💬 Koçla Sohbet":
         st.divider()
@@ -1450,8 +1465,9 @@ def main():
                         write_user_json(user_id, "notes", notes)
                         answer = "Notunu kaydettim."
                     elif any(word in normalized for word in ("hocalar", "ders kadrosu", "hangi hoca")):
-                        answer = "Matematik: Rehber Matematik / Mert Hoca; Fizik: VIP Fizik; Kimya: Görkem Şahin; " \
-                                 "Biyoloji: Dr. Biyoloji; Türkçe: Rüştü Hoca; Tarih: Benim Hocam; Coğrafya: Coğrafyanın Kodları."
+                        answer = "Matematik: Rehber Matematik, Eyüp B, Bıyıklı Matematik; Fizik: VIP Fizik, Özcan Aykın, Fizikfinito; " \
+                                 "Kimya: Kimya Adası, Görkem Şahin, Sinan İhtiyaroğlu; Biyoloji: Selin Hoca, Dr. Biyoloji; " \
+                                 "Türkçe: Rüştü Hoca, Kadir Gümüş; Tarih: Ramazan Yetgin; Coğrafya: Bayram Meral, Coğrafyanın Kodları."
                     else:
                         facts = read_user_json(user_id, "facts", [])
                         if re.search(r"benim adım|hedefim|favorim|seviyorum", normalized):
@@ -1461,8 +1477,9 @@ def main():
                         prompt = ("Sen JARVIS adlı, YKS öğrencisine kısa, somut ve motive edici öneriler veren kişisel koçsun. "
                                   "Kullanıcıya samimi ve net Türkçe ile, gerekirse 'efendim' diye hitap et. "
                                   "Belirsiz bilgiyi kesinmiş gibi sunma; uygulanabilir öneriler ver. "
-                                  "Ders rehberleri: Matematik Rehber Matematik/Mert Hoca, Fizik VIP Fizik, Kimya Görkem Şahin, "
-                                  "Biyoloji Dr. Biyoloji, Türkçe Rüştü Hoca, Tarih Benim Hocam, Coğrafya Coğrafyanın Kodları.\n"
+                                  "Ders rehberleri: Matematik Rehber Matematik, Eyüp B, Bıyıklı Matematik; Fizik VIP Fizik, Özcan Aykın, Fizikfinito; "
+                                  "Kimya Kimya Adası, Görkem Şahin, Sinan İhtiyaroğlu; Biyoloji Selin Hoca, Dr. Biyoloji; "
+                                  "Türkçe Rüştü Hoca, Kadir Gümüş; Tarih Ramazan Yetgin; Coğrafya Bayram Meral, Coğrafyanın Kodları.\n"
                                   f"Öğrenci bilgileri: {'; '.join(facts[-10:])}\n"
                                   f"YKS hafızası:\n{memory_to_text(load_memory(user_id))}\n"
                                   f"Önceki konuşma:\n{prior}\n\nKullanıcının mesajı: {user_input}")
