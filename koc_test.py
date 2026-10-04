@@ -581,6 +581,124 @@ def show_program_image(plan_text: str, key: str) -> None:
         st.error(f"Görsel oluşturulamadı: {exc}")
 
 
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_weather(city: str, latitude: float, longitude: float) -> dict:
+    """Open-Meteo hava durumu; API anahtarı istemez."""
+    response = requests.get(
+        "https://api.open-meteo.com/v1/forecast",
+        params={"latitude": latitude, "longitude": longitude,
+                "current": "temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "timezone": "auto", "forecast_days": 1}, timeout=8)
+    response.raise_for_status()
+    return response.json()
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_headlines(topic: str) -> list[dict]:
+    """Google News RSS başlıklarını getirir; içerik kaynağı haber yayıncısıdır."""
+    from xml.etree import ElementTree
+    response = requests.get("https://news.google.com/rss/search", params={"q": topic, "hl": "tr", "gl": "TR", "ceid": "TR:tr"},
+                            headers={"User-Agent": "Mozilla/5.0 YKSStudio/1.0"}, timeout=8)
+    response.raise_for_status()
+    root = ElementTree.fromstring(response.content)
+    return [{"title": item.findtext("title", "Başlık"), "link": item.findtext("link", "#"),
+             "source": item.findtext("source", "Haber kaynağı"), "date": item.findtext("pubDate", "")}
+            for item in root.findall(".//item")[:8]]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_market(symbol: str) -> dict:
+    """Yahoo Finance chart endpointinden gecikmeli piyasa özeti alır."""
+    response = requests.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+                            params={"range": "2d", "interval": "1d"},
+                            headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+    response.raise_for_status()
+    result = response.json()["chart"]["result"][0]
+    meta = result["meta"]
+    prices = [value for value in result["indicators"]["quote"][0]["close"] if value is not None]
+    latest = meta.get("regularMarketPrice", prices[-1] if prices else 0)
+    previous = meta.get("chartPreviousClose", prices[-2] if len(prices) > 1 else latest)
+    return {"price": latest, "change": latest - previous, "currency": meta.get("currency", ""), "name": meta.get("shortName", symbol)}
+
+
+def apply_home_scene(scene: str) -> None:
+    settings = {"night": {"Salon ışığı": False, "Çalışma lambası": False, "Klima": False, "Güvenlik modu": True},
+                "study": {"Salon ışığı": False, "Çalışma lambası": True, "Klima": False, "Güvenlik modu": False}}
+    for name, enabled in settings[scene].items():
+        st.session_state[f"home_device_{name}"] = enabled
+
+
+def render_world_panel() -> None:
+    st.markdown("# 🌐 Dünya Paneli")
+    st.caption("Çalışma alanının yanında gündem, hava, piyasalar ve akıllı yaşam araçları.")
+    cities = {"İstanbul": (41.0082, 28.9784), "Ankara": (39.9334, 32.8597), "İzmir": (38.4237, 27.1428),
+              "Bursa": (40.1885, 29.0610), "Antalya": (36.8969, 30.7133), "Adana": (37.0000, 35.3213),
+              "Eskişehir": (39.7667, 30.5256), "Trabzon": (41.0027, 39.7168)}
+    top_left, top_right = st.columns([1.5, 1])
+    with top_left:
+        st.markdown("### ☁️ Hava durumu")
+        city = st.selectbox("Şehir", list(cities), key="world_weather_city")
+    with top_right:
+        st.markdown("### 🛰️ Sistem")
+        st.metric("Kontrol paneli", "Çevrimiçi", help="Bağlantı gerektiren kartlar ihtiyaç halinde canlı veriyi getirir.")
+    try:
+        weather = fetch_weather(city, *cities[city])
+        current, daily = weather["current"], weather["daily"]
+        weather_cols = st.columns(4)
+        weather_cols[0].metric(f"{city} · sıcaklık", f"{current['temperature_2m']}°C", f"Hissedilen {current['apparent_temperature']}°C")
+        weather_cols[1].metric("Nem", f"%{current['relative_humidity_2m']}")
+        weather_cols[2].metric("Rüzgâr", f"{current['wind_speed_10m']} km/sa")
+        weather_cols[3].metric("Yağış olasılığı", f"%{daily['precipitation_probability_max'][0]}",
+                               f"En düşük {daily['temperature_2m_min'][0]}° · en yüksek {daily['temperature_2m_max'][0]}°")
+    except Exception:
+        st.info("Hava durumu şu an alınamadı. İnternet bağlantısını kontrol edip biraz sonra tekrar deneyin.")
+
+    st.markdown("### 📊 Piyasalar")
+    market_items = [("S&P 500", "^GSPC"), ("NASDAQ", "^IXIC"), ("BIST 100", "XU100.IS"), ("Bitcoin", "BTC-USD"), ("Altın", "GC=F"), ("USD/TRY", "USDTRY=X")]
+    market_cols = st.columns(3)
+    for index, (label, symbol) in enumerate(market_items):
+        with market_cols[index % 3]:
+            try:
+                item = fetch_market(symbol)
+                change_pct = item["change"] / (item["price"] - item["change"]) * 100 if item["price"] != item["change"] else 0
+                st.metric(label, f"{item['price']:,.2f} {item['currency']}", f"{item['change']:+,.2f} · %{change_pct:+.2f}")
+            except Exception:
+                st.metric(label, "Veri bekleniyor", help="Piyasa sağlayıcısına şu an erişilemiyor.")
+    st.caption("Piyasa verileri gecikmeli olabilir; yatırım kararı için tek başına kullanma.")
+
+    st.markdown("### 🗞️ Gündem")
+    topic = st.selectbox("Haber akışı", ["Türkiye", "Teknoloji ve yapay zekâ", "Bilim", "Ekonomi", "Dünya"], key="world_news_topic")
+    try:
+        headlines = fetch_headlines(topic)
+        if headlines:
+            for row in headlines:
+                title = html.escape(row["title"])
+                source = html.escape(row["source"])
+                href = html.escape(row["link"], quote=True)
+                st.markdown(f"<div class='soft-card' style='margin:.45rem 0;padding:.9rem 1rem'><a href='{href}' target='_blank' style='color:inherit;text-decoration:none;font-weight:650'>{title}</a><div style='font-size:.8rem;opacity:.72;margin-top:.4rem'>{source} · {html.escape(row['date'])}</div></div>", unsafe_allow_html=True)
+        else:
+            st.info("Bu başlık için şu an haber bulunamadı.")
+    except Exception:
+        st.info("Haber akışı şu an alınamadı. Bağlantı geri geldiğinde yeniden deneyebilirsin.")
+
+    st.markdown("### 🏠 Akıllı ev · arayüz demosu")
+    st.caption("Cihazlar şimdilik yerel demo anahtarlarıdır; gerçek ev cihazı kontrolü için üretici hesabı veya Home Assistant bağlantısı gerekir.")
+    device_cols = st.columns(4)
+    devices = [("Salon ışığı", "💡", True), ("Çalışma lambası", "📚", True), ("Klima", "❄️", False), ("Güvenlik modu", "🛡️", False)]
+    for column, (name, icon, default) in zip(device_cols, devices):
+        with column:
+            enabled = st.toggle(name, value=default, key=f"home_device_{name}")
+            st.markdown(f"<div class='soft-card'><div style='font-size:1.7rem'>{icon}</div><b>{'Açık' if enabled else 'Kapalı'}</b><p>{name} · demo</p></div>", unsafe_allow_html=True)
+    s1, s2, s3 = st.columns(3)
+    with s1:
+        st.button("🌙 İyi geceler", use_container_width=True, key="home_scene_night", on_click=apply_home_scene, args=("night",))
+    with s2:
+        st.button("📖 Ders modu", use_container_width=True, key="home_scene_study", on_click=apply_home_scene, args=("study",))
+    with s3:
+        st.link_button("🔎 Daha fazla teknoloji haberi", "https://news.google.com/topstories?hl=tr&gl=TR&ceid=TR:tr", use_container_width=True)
+
+
 def render_dashboard(user_id: int, username: str) -> None:
     tasks = read_user_json(user_id, "study_tasks", [])
     focus_logs = read_user_json(user_id, "study_sessions", [])
@@ -983,19 +1101,17 @@ def main():
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
         active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "📝 Soru Analizi", "📅 Program", "📈 İlerleme",
-                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
+                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Dünya Paneli", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
         st.markdown("<div class='side-nav-label'>DURUM</div>", unsafe_allow_html=True)
-        st.success("Gemini API hazır") if api_ready else st.error("GEMINI_API_KEY bulunamadı")
+        st.markdown("🟢 **Yapay zekâ hazır**" if api_ready else "⚪ **Temel mod** · Yapay zekâ anahtarı ayarlı değil")
         st.metric("📂 Hafıza kaydı", len(records))
-        if records:
-            with st.expander("Son kayıtlar"):
-                for item in records[-6:]:
-                    st.write(f"• {item.get('type', 'kayıt')} — {item.get('title', 'Başlıksız kayıt')}")
 
     if active_view == "⌂ Genel Bakış":
         render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
+    if active_view == "🌐 Dünya Paneli":
+        render_world_panel()
     if active_view == "📝 Soru Analizi":
         st.subheader("Soru hata laboratuvarı")
         st.caption("Yanlış soruyu çözümle, hata türünü kaydet ve aralıklı tekrar kuyruğuna al.")
