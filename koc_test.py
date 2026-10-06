@@ -50,7 +50,7 @@ except ImportError:
 
 
 # Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
-st.set_page_config(page_title="JARVIS · YKS Çalışma Stüdyosu", page_icon="🌹", layout="wide")
+st.set_page_config(page_title="JARVIS · Kişisel Komuta Odası", page_icon="🌹", layout="wide")
 
 st.markdown("""
 <style>
@@ -95,6 +95,39 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .hero-card p { color:#d0d9e9; font-size:1rem; max-width:520px; margin:0; }
 .hero-pill { display:inline-flex; margin-top:1.25rem; padding:.48rem .8rem; border:1px solid #ffffff35; border-radius:999px; background:#ffffff12; color:#f2f6ff; font-size:.8rem; }
 .hero-art { width:min(31%,300px); min-width:180px; position:relative; z-index:1; }
+.hero-card { background:radial-gradient(ellipse at 82% 48%,#7658db38,transparent 35%),radial-gradient(ellipse at 68% 95%,#e74b6830,transparent 38%),linear-gradient(115deg,#0a0d15 0%,#121a2b 58%,#1d2040 100%);border:1px solid #ffffff18; }
+.ai-portrait { width:min(34%,320px);min-width:200px;aspect-ratio:1;position:relative;z-index:1;display:grid;place-items:center;isolation:isolate;animation:portrait-float 7s ease-in-out infinite; }
+.ai-portrait:before { content:"";position:absolute;inset:12%;border-radius:50%;background:radial-gradient(circle,#9464ff40,transparent 67%);filter:blur(12px); }
+.ai-portrait svg { position:relative;width:76%;height:76%;filter:drop-shadow(0 12px 30px #060812aa); }
+.ai-portrait-ring { position:absolute;inset:8%;border:1px solid #9d83ff62;border-radius:50%;box-shadow:0 0 26px #8064ff1c,inset 0 0 22px #8064ff12; }
+.ai-portrait-ring.ring-a { inset:2%;border-style:dashed;border-color:#e45b8a47;animation:reactor-spin 38s linear infinite; }
+.ai-portrait-ring.ring-b { inset:17%;border-color:#5e9dff6b;animation:reactor-spin 26s linear infinite reverse; }
+.ai-portrait-caption { position:absolute;bottom:3%;text-align:center;color:#d3c6ff;font:700 .63rem ui-monospace,Consolas,monospace;letter-spacing:.16em; }
+@keyframes portrait-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-5px); } }
+.home-priority-grid { margin:0 0 1.8rem; }
+.st-key-home_weather_panel,.st-key-home_tasks_panel { min-height:250px;height:100%;padding:1.1rem 1.2rem;border:1px solid #ffffff14;border-radius:20px;background:linear-gradient(145deg,#111827dc,#0d121ddd);box-shadow:0 16px 42px #0003,inset 0 1px 0 #ffffff0a;backdrop-filter:blur(15px); }
+.home-panel-head { display:flex;justify-content:space-between;align-items:center;gap:.7rem;margin-bottom:.8rem; }
+.home-panel-head h3 { margin:0;color:#f1effa;font-size:1rem; }
+.home-panel-tag { color:#aaa0c5;font-size:.66rem;font-weight:800;letter-spacing:.12em; }
+.home-weather-reading { display:flex;align-items:center;gap:1rem;margin:.5rem 0 .75rem; }
+.home-weather-temp { font-size:3.3rem;line-height:1;font-weight:720;letter-spacing:-.07em;color:#f8f7ff;font-variant-numeric:tabular-nums; }
+.home-weather-summary { color:#bbb8ce;font-size:.86rem;line-height:1.5; }
+.home-weather-meta { display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem; }
+.home-weather-meta span { padding:.35rem .55rem;border:1px solid #ffffff12;border-radius:10px;color:#c0bdd0;background:#ffffff06;font-size:.72rem; }
+.home-task-row { display:flex;align-items:flex-start;gap:.65rem;padding:.65rem 0;border-bottom:1px solid #ffffff0c; }
+.home-task-row:last-child { border-bottom:0; }
+.home-task-check { color:#81e1b4;font-weight:800; }
+.home-task-copy { color:#eeeaf7;font-size:.83rem;line-height:1.45; }
+.home-task-copy.is-done { color:#7f899c;text-decoration:line-through; }
+.home-task-meta { display:block;color:#8f91a5;font-size:.68rem;margin-top:.18rem; }
+.home-empty-task { padding:.85rem;border:1px dashed #ffffff20;border-radius:14px;color:#b7b3c7;font-size:.82rem;line-height:1.5; }
+.home-start-button button { background:linear-gradient(100deg,#7256db,#a452c5 58%,#d44d79)!important;color:white!important; }
+.ai-assistant-chip { display:inline-flex;align-items:center;gap:.5rem;color:#ded7f4;font-size:.74rem; }
+.ai-assistant-chip i { width:7px;height:7px;border-radius:50%;background:#71dcaa;box-shadow:0 0 12px #71dcaa; }
+.hero-badge { color:#e5dcff;border-color:#b39bff30;background:#9a79ff14; }
+.hero-eyebrow { color:#c9baff!important; }
+.section-kicker { color:#a892ff!important; }
+.feature-card.is-active { box-shadow:0 0 28px color-mix(in srgb,var(--feature-accent) 22%,transparent),0 18px 48px #0005,inset 0 1px 0 #ffffff16; }
 .stark-reactor { width:min(33%,310px);min-width:205px;aspect-ratio:1;display:grid;place-items:center;position:relative;z-index:1;isolation:isolate; }
 .stark-reactor:before { content:"";position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle,#08c9e51c 0 22%,#08c9e50a 42%,transparent 70%);filter:blur(8px);animation:reactor-pulse 3s ease-in-out infinite; }
 .reactor-ring { position:absolute;inset:14%;border:1px solid #58e8ff70;border-radius:50%;box-shadow:0 0 22px #08c9e52a,inset 0 0 18px #08c9e519; }
@@ -568,7 +601,7 @@ def offline_kit_html(user_id: int) -> str:
     seed_json = json.dumps(seed, ensure_ascii=False).replace("</", "<\\/")
     page = r'''<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d15"><title>JARVIS · Çevrimdışı çalışma</title>
 <style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#08c9e525,transparent 38%),linear-gradient(145deg,#080d15,#111a28 58%,#090f18);color:#eff6fc;font:16px system-ui,sans-serif}main{max-width:900px;margin:auto;padding:24px}header,.card{background:#101b29cc;border:1px solid #8adce52a;border-radius:20px;padding:20px;margin:14px 0;backdrop-filter:blur(14px);box-shadow:0 12px 36px #03080e55}h1{margin:0;color:#91eaf2}small,.muted{color:#a9bac8}button{background:linear-gradient(110deg,#087f9c,#08b7cf 68%,#ef536f);color:#07131b;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}input,textarea{background:#0d1724;color:#fff;border:1px solid #385366;border-radius:10px;padding:10px;width:100%;margin:6px 0}li{margin:10px 0}.timer{font-size:64px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}.row{display:flex;gap:10px;align-items:center}.row button{flex:none}</style>
-<main><header><small>JARVIS · YKS ÇALIŞMA STÜDYOSU</small><h1>Çevrimdışı çalışma kiti</h1><p class="muted">Bu tek dosya internet olmadan çalışır. Kayıtlar bu cihazın tarayıcı deposunda tutulur.</p></header>
+<main><header><small>JARVIS · PERSONAL SYSTEM</small><h1>Çevrimdışı çalışma kiti</h1><p class="muted">Bu tek dosya internet olmadan çalışır. Kayıtlar bu cihazın tarayıcı deposunda tutulur.</p></header>
 <section class="card"><h2>Odak sayacı</h2><div class="timer" id="clock">25:00</div><div class="row"><button onclick="toggleTimer()" id="timerBtn">Başlat</button><button onclick="resetTimer()">Sıfırla</button><select id="subject"><option>Matematik</option><option>Türkçe</option><option>Fizik</option><option>Kimya</option><option>Biyoloji</option><option>Diğer</option></select></div></section>
 <section class="card"><h2>Bugünkü plan</h2><ul id="tasks"></ul></section><section class="card"><h2>Yanlış soru tekrarların</h2><ul id="questions"></ul></section>
 <section class="card"><h2>Çevrimdışı not</h2><textarea id="note" rows="3" placeholder="Notunu yaz..."></textarea><button onclick="saveNote()">Notu kaydet</button><ul id="notes"></ul></section>
@@ -1526,24 +1559,120 @@ def render_dashboard(user_id: int, username: str, api_ready: bool = False) -> No
     else:
         insight = "İlk çalışma oturumunu kaydet; JARVIS haftalık ritmini ve sıradaki önceliğini oluşturmaya başlasın."
 
+    ai_portrait = """
+      <div class="hero-art ai-portrait" role="img" aria-label="JARVIS kadın yapay zekâ asistanı">
+        <span class="ai-portrait-ring ring-a"></span><span class="ai-portrait-ring ring-b"></span>
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="novaHair" x1="42" y1="20" x2="190" y2="220" gradientUnits="userSpaceOnUse"><stop stop-color="#9878ff"/><stop offset=".55" stop-color="#433c75"/><stop offset="1" stop-color="#171b31"/></linearGradient>
+            <linearGradient id="novaFace" x1="104" y1="62" x2="155" y2="169" gradientUnits="userSpaceOnUse"><stop stop-color="#f4d7db"/><stop offset="1" stop-color="#bb9cb6"/></linearGradient>
+            <linearGradient id="novaSuit" x1="64" y1="167" x2="178" y2="235" gradientUnits="userSpaceOnUse"><stop stop-color="#222945"/><stop offset=".55" stop-color="#161c31"/><stop offset="1" stop-color="#392344"/></linearGradient>
+          </defs>
+          <path d="M54 220c4-31 19-48 44-56l20-6 22 1 22 7c25 8 39 25 43 54H54Z" fill="url(#novaSuit)" stroke="#a58bff" stroke-opacity=".55" stroke-width="2"/>
+          <path d="M78 114c-9-44 8-81 43-91 31-9 63 7 74 38 9 25 4 62-6 84l-15-22-4-37c-15 14-43 20-75 18l-4 42-13-32Z" fill="url(#novaHair)" stroke="#b29cff" stroke-opacity=".55" stroke-width="2"/>
+          <path d="M99 88c13-3 28-8 40-17 8 9 19 14 31 17l4 37c1 23-15 41-37 42-22 0-39-17-39-40l1-39Z" fill="url(#novaFace)"/>
+          <path d="M100 115c6-4 12-4 17-1m27 0c6-3 12-3 17 1" fill="none" stroke="#514b68" stroke-width="3" stroke-linecap="round"/>
+          <path d="M109 122h4m36 0h4" stroke="#3d4e76" stroke-width="4" stroke-linecap="round"/>
+          <path d="M127 125l-3 15 7 2m-14 7c8 5 17 5 24-1" fill="none" stroke="#855d7a" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M89 178l31 18 28-18 17 42H73l16-42Z" fill="#11182b" stroke="#7e70c9" stroke-opacity=".8" stroke-width="2"/>
+          <path d="M120 197h19" stroke="#63c9f7" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="128" cy="197" r="4" fill="#bca1ff"/>
+        </svg>
+        <span class="ai-portrait-caption">J.A.R.V.I.S. · KİŞİSEL ASİSTAN</span>
+      </div>
+    """
     st.markdown(f"""
     <section class="hero-card">
       <div class="hero-copy">
-      <div class="hero-badge">JARVIS PERSONAL SYSTEM · READY</div>
-      <div class="hero-eyebrow">KİŞİSEL KOMUTA MERKEZİ</div>
-        <h1>Merhaba {safe_name}.<br>Kontrol sende.</h1>
-        <p>Çalışma alanını, günlük bilgileri ve kişisel projelerini tek merkezde birleştir. JARVIS verilerinden öğrenir; işlem yapmadan önce kontrolü sana bırakır.</p>
-        <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y} &nbsp;·&nbsp; Kişisel kontrol paneli</span>
+        <div class="hero-badge">PERSONAL SYSTEM · ONLINE</div>
+        <div class="hero-eyebrow">KİŞİSEL KOMUTA ODAN</div>
+        <h1>Merhaba {safe_name}.<br>Bugün küçük bir adım yeter.</h1>
+        <p>Havan, günlük planın ve kişisel araçların tek yerde. JARVIS yanında; ne zaman başlayacağına sen karar verirsin.</p>
+        <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y}</span>
         <span class="hero-pill" style="margin-left:.45rem">🎓 &nbsp; {html.escape(exam_countdown)}</span>
       </div>
-      <div class="hero-art stark-reactor" role="img" aria-label="JARVIS çekirdeğini temsil eden animasyonlu reaktör arayüzü">
-        <span class="reactor-ring ring-outer"></span><span class="reactor-ring"></span>
-        <span class="reactor-ring ring-mid"></span><span class="reactor-ring ring-inner"></span>
-        <span class="reactor-core"></span>
-        <span class="reactor-label">J.A.R.V.I.S. CORE · {"ONLINE" if api_ready else "LOCAL MODE"}</span>
-      </div>
+      {ai_portrait}
     </section>
     """, unsafe_allow_html=True)
+
+    # Ana ekranda öncelik: hava durumu ve bugünün yapılacakları.
+    st.markdown("<div class='section-kicker'>BUGÜNÜN KONTROL PANELİ</div>", unsafe_allow_html=True)
+    weather_col, tasks_col = st.columns([.94, 1.06], gap="medium")
+    with weather_col:
+        with st.container(key="home_weather_panel"):
+            st.markdown("<div class='home-panel-head'><h3>Hava durumu</h3><span class='home-panel-tag'>GÜNLÜK ÖZET</span></div>", unsafe_allow_html=True)
+            provinces = turkey_provinces()
+            preferred_city = read_user_json(user_id, "weather_city", "Isparta")
+            city_widget_key = f"home_weather_city_{user_id}"
+            if st.session_state.get(city_widget_key) not in provinces:
+                st.session_state[city_widget_key] = preferred_city if preferred_city in provinces else "Isparta"
+            selected_city = st.selectbox("İl", provinces, key=city_widget_key, label_visibility="collapsed")
+            weather_key = f"home_weather_{user_id}"
+            weather_data = st.session_state.get(weather_key, {})
+            manual_weather_refresh = st.button("Hava durumunu yenile", key="home_weather_fetch", use_container_width=True)
+            first_city_load = (st.session_state.get(f"{weather_key}_city") != selected_city
+                               and st.session_state.get(f"{weather_key}_requested_city") != selected_city)
+            if manual_weather_refresh or first_city_load:
+                st.session_state[f"{weather_key}_requested_city"] = selected_city
+                try:
+                    with st.spinner("Hava bilgisi getiriliyor..."):
+                        weather_data = fetch_weather(selected_city, *fetch_city_coordinates(selected_city))
+                    st.session_state[weather_key] = weather_data
+                    st.session_state[f"{weather_key}_city"] = selected_city
+                    write_user_json(user_id, "weather_city", selected_city)
+                    st.session_state.pop(f"{weather_key}_error", None)
+                except Exception:
+                    st.session_state[f"{weather_key}_error"] = "Hava bilgisi alınamadı. Bağlantını kontrol edip yeniden dene."
+            if st.session_state.get(f"{weather_key}_error"):
+                st.caption(st.session_state[f"{weather_key}_error"])
+            if weather_data and st.session_state.get(f"{weather_key}_city") == selected_city:
+                current = weather_data.get("current", {})
+                daily = weather_data.get("daily", {})
+                temp = current.get("temperature_2m", "—")
+                feels = current.get("apparent_temperature", "—")
+                high = daily.get("temperature_2m_max", ["—"])[0]
+                low = daily.get("temperature_2m_min", ["—"])[0]
+                st.markdown(f"<div class='home-weather-reading'><strong class='home-weather-temp'>{temp}°</strong><div class='home-weather-summary'>{html.escape(selected_city)}<br>Hissedilen {feels}°C</div></div><div class='home-weather-meta'><span>En yüksek {high}°</span><span>En düşük {low}°</span><span>Nem %{current.get('relative_humidity_2m', '—')}</span></div>", unsafe_allow_html=True)
+                st.caption("Güncel ölçüm ve tahmin · Open-Meteo")
+            else:
+                st.markdown("<div class='home-empty-task'>İlini seçip hava durumunu yükle. Seçimin sonraki ziyaretin için hatırlanır.</div>", unsafe_allow_html=True)
+
+    with tasks_col:
+        with st.container(key="home_tasks_panel"):
+            open_today = [item for item in unfinished_today]
+            st.markdown(f"<div class='home-panel-head'><h3>Bugün yapılacaklar</h3><span class='home-panel-tag'>{len(open_today)} AÇIK</span></div>", unsafe_allow_html=True)
+            if open_today:
+                for task in open_today[:4]:
+                    task_id = str(task.get("id", ""))
+                    task_label = " · ".join(part for part in [task.get("subject", "Görev"), task.get("topic") or task.get("target", "")] if part)
+                    if st.checkbox(task_label, key=f"home_task_{user_id}_{task_id}", value=False):
+                        latest_tasks = read_user_json(user_id, "study_tasks", [])
+                        for stored_task in latest_tasks:
+                            if str(stored_task.get("id", "")) == task_id:
+                                stored_task["done"] = True
+                        write_user_json(user_id, "study_tasks", latest_tasks)
+                        if task_id:
+                            award_xp(user_id, f"task:{task_id}", 10, "Planlı görev")
+                        st.rerun()
+                if len(open_today) > 4:
+                    st.caption(f"ve {len(open_today) - 4} görev daha · Program bölümünde görüntüle")
+                if st.button("⏱️ Şimdi başla · 10 dakika", key="home_start_focus", use_container_width=True):
+                    navigate_to_view("🎯 Odak Modu")
+                    st.rerun()
+            else:
+                st.markdown("<div class='home-empty-task'>Bugün için planlı iş yok. İstersen tek bir küçük görev ekleyip başlayabilirsin.</div>", unsafe_allow_html=True)
+            with st.form("home_quick_task_form", clear_on_submit=True):
+                quick_task = st.text_input("Küçük bir sonraki adım", placeholder="Örn. 10 dakika matematik tekrarı", max_chars=120, label_visibility="collapsed")
+                add_quick_task = st.form_submit_button("＋ Bugüne ekle", use_container_width=True)
+            if add_quick_task:
+                task_text = quick_task.strip() or "10 dakika başlama turu"
+                all_tasks = read_user_json(user_id, "study_tasks", [])
+                all_tasks.append({"id": uuid.uuid4().hex[:10], "date": today.isoformat(), "day": today_name,
+                                  "subject": "Kişisel", "topic": task_text, "target": "", "done": False})
+                write_user_json(user_id, "study_tasks", all_tasks)
+                st.rerun()
+
+    st.markdown("<div class='ai-assistant-chip'><i></i> JARVIS · kişisel yapay zekâ asistanın · kontrol sende</div>", unsafe_allow_html=True)
 
     recommendation_theme_class = "recommendation-card recommendation-card-light" if st.session_state.get("theme_mode") == "Açık" else "recommendation-card"
     st.markdown(
@@ -1618,7 +1747,7 @@ def render_dashboard(user_id: int, username: str, api_ready: bool = False) -> No
 
     if read_user_json(user_id, "bulletin_seen_date", "") != today.isoformat():
         checkin_line = f"Bugünkü durumun: {html.escape(str(today_checkin.get('mood', 'Dengeli')))} · enerji {int(today_checkin.get('energy', 3))}/5." if today_checkin else "Günlük mod ve enerji yoklamasını tamamla, planını bugünkü ritmine uyduralım."
-        st.markdown(f"<div class='soft-card' style='margin:.4rem 0 1rem;border-left:4px solid #08c9e5;background:linear-gradient(110deg,#101c2a,#172535)!important;color:#fff'><span class='section-kicker' style='color:#78e5f2!important'>☀️ GÜNLÜK YKS BÜLTENİ</span><h3 style='color:#fff!important;margin:.45rem 0'>Günaydın {safe_name}.</h3><p style='color:#cbd9e5!important'>{html.escape(exam_countdown)} · Bugün planında <b style='color:#fff'>{len(unfinished_today)} görev</b> var. Bugün siteye {today_minutes} dakika çalışma kaydettin.</p><p style='color:#cbd9e5!important'>{checkin_line} Gelişim seviyesi: <b style='color:#80e8f3'>{profile['title']}</b> · {profile['xp']} XP</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='soft-card' style='margin:.4rem 0 1rem;border-left:4px solid #08c9e5;background:linear-gradient(110deg,#101c2a,#172535)!important;color:#fff'><span class='section-kicker' style='color:#78e5f2!important'>☀️ GÜNLÜK SİSTEM ÖZETİ</span><h3 style='color:#fff!important;margin:.45rem 0'>Günaydın {safe_name}.</h3><p style='color:#cbd9e5!important'>{html.escape(exam_countdown)} · Bugün planında <b style='color:#fff'>{len(unfinished_today)} görev</b> var. Bugün siteye {today_minutes} dakika çalışma kaydettin.</p><p style='color:#cbd9e5!important'>{checkin_line} Gelişim seviyesi: <b style='color:#80e8f3'>{profile['title']}</b> · {profile['xp']} XP</p></div>", unsafe_allow_html=True)
         if st.button("Günlük bülteni kapat", key="dismiss_morning_bulletin"):
             write_user_json(user_id, "bulletin_seen_date", today.isoformat())
             st.rerun()
@@ -2153,7 +2282,7 @@ def render_login() -> None:
         [data-testid="stRadio"] [role="radiogroup"] label { color:#52687a!important; }
         [data-testid="stTabs"] [data-baseweb="tab"] { color:#52687a!important; }
         </style>""", unsafe_allow_html=True)
-    st.markdown(f'<div class="auth-brand">{studio_mark_html(30)} JARVIS · YKS ÇALIŞMA STÜDYOSU</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="auth-brand">{studio_mark_html(30)} JARVIS · PERSONAL SYSTEM</div>', unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">YKS yolculuğunu planla, ilerlemeni takip et ve her gün küçük bir adım daha at.</div><div class="auth-feature-strip"><span>✦ Kişisel çalışma planı</span><span>◷ Günlük odak takibi</span><span>⌁ Güvenli hafıza</span></div>', unsafe_allow_html=True)
         auth_mode = st.radio("Hesap işlemi", ["Giriş yap", "Hesap oluştur"], horizontal=True,
@@ -2208,21 +2337,21 @@ def main():
 
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
-    theme_options = ["Açık", "Koyu", "⚡ Stark Core", "🕸️ Parker Pulse"]
+    theme_options = ["Açık", "🦇 Night Ops", "🌌 Violet Pulse", "🔴 Red Alert"]
     if st.session_state.get("theme_owner_id") != user_id:
-        saved_theme = read_user_json(user_id, "theme_preference", "Koyu")
-        legacy_themes = {"🔥 Alev Kanatlı": "⚡ Stark Core", "🌌 Kozmik Anka": "🕸️ Parker Pulse"}
+        saved_theme = read_user_json(user_id, "theme_preference", "🦇 Night Ops")
+        legacy_themes = {"Koyu": "🦇 Night Ops", "⚡ Stark Core": "🦇 Night Ops", "🕸️ Parker Pulse": "🌌 Violet Pulse", "🔥 Alev Kanatlı": "🔴 Red Alert", "🌌 Kozmik Anka": "🌌 Violet Pulse"}
         saved_theme = legacy_themes.get(saved_theme, saved_theme)
-        st.session_state["theme_mode"] = saved_theme if saved_theme in theme_options else "Koyu"
+        st.session_state["theme_mode"] = saved_theme if saved_theme in theme_options else "🦇 Night Ops"
         st.session_state["theme_owner_id"] = user_id
     if st.session_state.get("theme_mode") not in theme_options:
-        legacy_themes = {"🔥 Alev Kanatlı": "⚡ Stark Core", "🌌 Kozmik Anka": "🕸️ Parker Pulse"}
-        migrated_theme = legacy_themes.get(st.session_state.get("theme_mode"), "Koyu")
-        st.session_state["theme_mode"] = migrated_theme if migrated_theme in theme_options else "Koyu"
+        legacy_themes = {"Koyu": "🦇 Night Ops", "⚡ Stark Core": "🦇 Night Ops", "🕸️ Parker Pulse": "🌌 Violet Pulse", "🔥 Alev Kanatlı": "🔴 Red Alert", "🌌 Kozmik Anka": "🌌 Violet Pulse"}
+        migrated_theme = legacy_themes.get(st.session_state.get("theme_mode"), "🦇 Night Ops")
+        st.session_state["theme_mode"] = migrated_theme if migrated_theme in theme_options else "🦇 Night Ops"
     with st.sidebar:
-        st.markdown(f'<div class="side-brand">{studio_mark_html(30)}<span>JARVIS <small style="display:block;color:#9bb0c4;font-weight:550;letter-spacing:.15em">YKS ÇALIŞMA STÜDYOSU</small></span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="side-brand">{studio_mark_html(30)}<span>JARVIS <small style="display:block;color:#9bb0c4;font-weight:550;letter-spacing:.15em">PERSONAL SYSTEM</small></span></div>', unsafe_allow_html=True)
         safe_sidebar_name = html.escape(st.session_state.get("username", "Kullanıcı"), quote=True)
-        st.markdown(f'<div class="sidebar-profile"><span class="sidebar-avatar">{safe_sidebar_name[:1].upper()}</span><span><b>{safe_sidebar_name}</b><small>Çalışma alanın aktif</small></span><i></i></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="sidebar-profile"><span class="sidebar-avatar">{safe_sidebar_name[:1].upper()}</span><span><b>{safe_sidebar_name}</b><small>Sistemin hazır</small></span><i></i></div>', unsafe_allow_html=True)
         st.button("Çıkış yap", use_container_width=True, on_click=logout_user)
         st.download_button("⬇️ Hesap verilerimi yedekle", data=account_backup(user_id),
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
@@ -2234,21 +2363,21 @@ def main():
                 (st.success if restored else st.error)(restore_message)
                 if restored:
                     st.rerun()
-        theme_labels = {"Açık": "☀️ Daylight", "Koyu": "🌘 Midnight",
-                        "⚡ Stark Core": "⚡ Stark Core · cyan / graphite", "🕸️ Parker Pulse": "🕸️ Parker Pulse · red / blue"}
+        theme_labels = {"Açık": "☀️ Daylight", "🦇 Night Ops": "🦇 Night Ops · graphite / blue",
+                        "🌌 Violet Pulse": "🌌 Violet Pulse · purple / blue", "🔴 Red Alert": "🔴 Red Alert · red / green"}
         theme_mode = st.selectbox("Görünüm stüdyosu", theme_options, key="theme_mode",
                                   format_func=lambda value: theme_labels.get(value, value),
                                   on_change=persist_theme_preference, args=(user_id,))
-        theme_descriptions = {"Açık": "Açık yüzeyler · mavi ve cyan etkileşimler",
-                              "Koyu": "Grafit arayüz · dengeli cyan vurgu",
-                              "⚡ Stark Core": "Derin grafit · reaktör cyanı ve sıcak kırmızı",
-                              "🕸️ Parker Pulse": "Gece mavisi · enerjik kırmızı ve elektrik mavisi"}
-        palette = {"Açık": "linear-gradient(90deg,#f7fbff,#ffffff,#147ca1,#16b8cf)",
-                   "Koyu": "linear-gradient(90deg,#080d15,#111b2a,#08c9e5,#ef536f)",
-                   "⚡ Stark Core": "linear-gradient(90deg,#080d15,#111b2a,#08c9e5,#ef536f)",
-                   "🕸️ Parker Pulse": "linear-gradient(90deg,#101018,#15243a,#ef536f,#2586db)"}
+        theme_descriptions = {"Açık": "Açık yüzeyler · mavi ve mor etkileşimler",
+                              "🦇 Night Ops": "Grafit · gece mavisi · kontrollü mor ışık",
+                              "🌌 Violet Pulse": "Koyu mor · elektrik mavisi · yumuşak geçişler",
+                              "🔴 Red Alert": "Grafit · uyarılarda kırmızı · tamamlananda yeşil"}
+        palette = {"Açık": "linear-gradient(90deg,#f7fbff,#ffffff,#748cff,#9a70ed)",
+                   "🦇 Night Ops": "linear-gradient(90deg,#090b12,#15192a,#5979ed,#8a6adf)",
+                   "🌌 Violet Pulse": "linear-gradient(90deg,#0a0912,#211735,#9160e9,#498ed9)",
+                   "🔴 Red Alert": "linear-gradient(90deg,#0d0c12,#25131e,#df5262,#60c691)"}
         st.caption(theme_descriptions.get(theme_mode, ""))
-        st.markdown(f"<div style='height:8px;border-radius:99px;margin:-.35rem 0 .8rem;background:{palette.get(theme_mode, palette['Koyu'])}'></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='height:8px;border-radius:99px;margin:-.35rem 0 .8rem;background:{palette.get(theme_mode, palette['🦇 Night Ops'])}'></div>", unsafe_allow_html=True)
         st.divider()
 
     if theme_mode != "Açık":
@@ -2336,12 +2465,19 @@ def main():
         .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#fff!important;color:#172536!important;border-color:#cddce5!important; }
         """
     st.markdown(f"<style>{studio_theme_css}</style>", unsafe_allow_html=True)
-    if theme_mode == "⚡ Stark Core":
-        st.markdown("<style>:root{--brand:#08c9e5!important;--mint:#6be5f1!important;--gold:#ef536f!important}.hero-card{background:radial-gradient(circle at 82% 48%,#08c9e52b,transparent 31%),linear-gradient(112deg,#09111c,#12243a 58%,#163548)!important}</style>", unsafe_allow_html=True)
-    elif theme_mode == "🕸️ Parker Pulse":
-        st.markdown("<style>:root{--brand:#ef536f!important;--mint:#2586db!important;--gold:#73d9ec!important}.hero-card{background:radial-gradient(circle at 82% 48%,#ef536f24,transparent 34%),radial-gradient(circle at 68% 92%,#2586db23,transparent 38%),linear-gradient(112deg,#0c1019,#17253a 57%,#121c2e)!important}</style>", unsafe_allow_html=True)
+    theme_colors = {
+        "🦇 Night Ops": ("#6f86f6", "#a184f4", "#e56d81", "#101320", "#191a31"),
+        "🌌 Violet Pulse": ("#a06af0", "#5d9ef0", "#df6caf", "#120d1c", "#261735"),
+        "🔴 Red Alert": ("#df5365", "#75a4f5", "#68d49b", "#160e15", "#2b151d"),
+    }
+    if theme_mode in theme_colors:
+        brand, mint, gold, hero_start, hero_end = theme_colors[theme_mode]
+        st.markdown(f"<style>:root{{--brand:{brand}!important;--mint:{mint}!important;--gold:{gold}!important}}html,body,[data-testid=stAppViewContainer]{{background-image:radial-gradient(ellipse at 84% 4%,{brand}20,transparent 35%),radial-gradient(ellipse at 10% 75%,{gold}12,transparent 37%),linear-gradient(145deg,#090b12,#111624 55%,#0a0d15)!important}}.hero-card{{background:radial-gradient(ellipse at 82% 48%,{brand}35,transparent 36%),radial-gradient(ellipse at 66% 100%,{gold}25,transparent 39%),linear-gradient(115deg,#090b12 0%,{hero_start} 57%,{hero_end} 100%)!important}}.ambient-hud i{{border-color:{brand}!important}}.ambient-hud b{{background:{brand}!important;box-shadow:0 0 45px 18px {brand}55!important}}.side-nav-label,.section-kicker{{color:{mint}!important}}.ai-portrait-caption{{color:{mint}!important}}</style>", unsafe_allow_html=True)
     if theme_mode == "Açık":
         st.markdown("""<style>
+        .st-key-home_weather_panel,.st-key-home_tasks_panel { background:linear-gradient(145deg,#ffffffed,#f1effa)!important;border-color:#39314f20!important;box-shadow:0 14px 38px #25213912!important; }
+        .home-panel-head h3,.home-task-copy { color:#272438!important; }.home-panel-tag,.home-weather-summary { color:#655c79!important; }.home-weather-temp { color:#272438!important; }
+        .home-weather-meta span { background:#ffffffa8;border-color:#30234a16;color:#574d6a; }.home-empty-task { color:#655c79;border-color:#392d4a35; }
         .feature-card,.bento-card { background:rgba(255,255,255,.78)!important;border-color:rgba(35,42,58,.11)!important;box-shadow:0 14px 38px #323b4b12,inset 0 1px 0 #ffffffb5!important; }
         .feature-card.is-active { background:linear-gradient(145deg,color-mix(in srgb,var(--feature-accent) 9%,#fff),rgba(255,255,255,.9))!important;box-shadow:0 0 30px color-mix(in srgb,var(--feature-accent) 20%,transparent),0 18px 48px #323b4b14!important; }
         .feature-card h3,.bento-value { color:#202838!important; }.feature-card p,.bento-note { color:#5c6678!important; }.bento-label,.feature-hint { color:#697386!important; }
@@ -2430,7 +2566,7 @@ def main():
     @media(prefers-reduced-motion:reduce) { .stark-reactor { animation:none!important; } }
     @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.stark-reactor { min-width:112px!important;width:30%!important; }.quick-access-title { font-size:1rem!important; }.study-heatmap { gap:4px;padding:.65rem; } }
     </style>""", unsafe_allow_html=True)
-    st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'>{studio_mark_html(34)} JARVIS // YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-status'><i></i>{'JARVIS CORE READY' if api_ready else 'LOCAL MODE'}</span><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'>{studio_mark_html(34)} JARVIS // PERSONAL SYSTEM</div><span class='app-masthead-status'><i></i>{'AI ONLINE' if api_ready else 'LOCAL MODE'}</span><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
     st.markdown(ambient_hud_markup(), unsafe_allow_html=True)
 
     current_view = st.session_state.get("active_view", "⌂ Genel Bakış")
