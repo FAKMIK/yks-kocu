@@ -125,6 +125,32 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .focus-live { color:#ffb96d;font-size:.72rem;font-weight:800;letter-spacing:.18em; }
 .focus-clock { margin:.35rem 0;font-size:clamp(4rem,12vw,7.5rem);font-weight:850;letter-spacing:-.07em;line-height:1.1;color:#fff6e9;text-shadow:0 0 36px #ff714355;font-variant-numeric:tabular-nums; }
 .focus-subject { color:#d0c5bd;font-size:.95rem; }
+.hero-badge { display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .68rem;border:1px solid #ffffff20;border-radius:999px;background:#ffffff10;color:#ffe1ad;font-size:.68rem;font-weight:800;letter-spacing:.11em;backdrop-filter:blur(12px); }
+.hero-card h1 { background:linear-gradient(180deg,#fff 0%,#d4d4dc 100%);-webkit-background-clip:text;background-clip:text;color:transparent!important; }
+.feature-stage { --feature-accent:#a85cf2;position:relative;isolation:isolate;padding:1.1rem 0 1.35rem;margin:.2rem 0 1rem; }
+.feature-stage:before { content:"";position:absolute;z-index:-1;inset:5% 12%;background:radial-gradient(ellipse at 50% 52%,color-mix(in srgb,var(--feature-accent) 26%,transparent),transparent 68%);filter:blur(42px);opacity:.76;animation:feature-aura 1s ease both; }
+.feature-card { position:relative;overflow:hidden;min-height:205px;padding:1.2rem 1.3rem;border:1px solid rgba(255,255,255,.08);border-radius:21px;background:rgba(18,24,38,.75);backdrop-filter:blur(16px);box-shadow:0 14px 38px #0004,inset 0 1px 0 #ffffff0c;cursor:grab;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease,background .35s ease;animation:feature-enter .45s ease both; }
+.feature-card:active { cursor:grabbing; }
+.feature-card:before { content:"";position:absolute;inset:0 auto 0 -70%;width:45%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,#ffffff10,transparent);animation:border-sweep 1.4s ease .2s both;pointer-events:none; }
+.feature-card.is-active { min-height:225px;border-color:color-mix(in srgb,var(--feature-accent) 56%,#ffffff18);background:linear-gradient(145deg,color-mix(in srgb,var(--feature-accent) 13%,rgba(18,24,38,.83)),rgba(18,24,38,.82));box-shadow:0 0 30px color-mix(in srgb,var(--feature-accent) 30%,transparent),0 18px 48px #0005,inset 0 1px 0 #ffffff16; }
+.feature-card.is-side { opacity:.74;transform:scale(.95); }
+.feature-category { color:var(--feature-accent);font-size:.68rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase; }
+.feature-card h3 { margin:.8rem 0 .45rem;color:#f7f7fb;font-size:clamp(1.1rem,2vw,1.45rem); }
+.feature-card p { color:#adb6c6;font-size:.88rem;line-height:1.55; }
+.feature-hint { display:flex;align-items:center;justify-content:space-between;color:#8993a4;font-size:.75rem;margin:.15rem .15rem 0; }
+.bento-card { height:100%;min-height:145px;padding:1.15rem 1.2rem;border:1px solid rgba(255,255,255,.08);border-radius:19px;background:rgba(18,24,38,.75);backdrop-filter:blur(16px);box-shadow:0 12px 32px #0003,inset 0 1px 0 #ffffff0b; }
+.bento-card.is-large { min-height:210px; }
+.bento-label { color:#9ca8ba;font-size:.72rem;font-weight:750;letter-spacing:.1em;text-transform:uppercase; }
+.bento-value { margin:.55rem 0;color:#f6f7fb;font-size:clamp(1.35rem,2.8vw,2rem);font-weight:780;letter-spacing:-.04em;font-variant-numeric:tabular-nums; }
+.bento-note { color:#aab4c4;font-size:.82rem;line-height:1.5; }
+.bento-meter { height:7px;margin:.7rem 0;border-radius:99px;background:#ffffff12;overflow:hidden; }
+.bento-meter i { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#a85cf2,#e45b75); }
+@keyframes feature-aura { from {opacity:.2;transform:translateX(-4%)} to {opacity:.76;transform:translateX(4%)} }
+@keyframes feature-enter { from {opacity:.5;transform:translateY(5px)} to {opacity:1;transform:translateY(0)} }
+@keyframes border-sweep { from {left:-70%} to {left:130%} }
+[data-testid="stMetricValue"],.focus-clock,.hero-pill,.bento-value { font-variant-numeric:tabular-nums;font-feature-settings:"tnum"; }
+@media(max-width:760px) { .feature-card,.feature-card.is-active { min-height:175px;padding:1rem; }.feature-card.is-side { transform:scale(.98); } }
+@media(prefers-reduced-motion:reduce) { .feature-card,.feature-card:before,.feature-stage:before { animation:none!important;transition:none!important; } }
 @media(max-width:760px) { .week-empty { min-height:180px;padding:1rem;gap:.8rem; } .week-bars { gap:4px;padding:8px; } .week-bars i { width:8px; } }
 @media(max-width:760px) { [data-testid="stMainBlockContainer"] { padding:1rem 1rem 3rem; } .hero-card { min-height:200px; padding:1.5rem; border-radius:19px; } .hero-art { width:26%; min-width:100px; } .hero-card h1 { font-size:2rem; } [data-testid="stTabs"] [data-baseweb="tab"] { padding:0 9px; font-size:.82rem; } }
 @media(prefers-reduced-motion:reduce) { *, *:before, *:after { transition:none !important; scroll-behavior:auto !important; } }
@@ -1183,12 +1209,29 @@ def render_anka_social(user_id: int, username: str) -> None:
     sessions = read_user_json(user_id, "study_sessions", [])
     wrongs = read_user_json(user_id, "wrong_questions", [])
     tasks = read_user_json(user_id, "study_tasks", [])
+    exam_results = read_user_json(user_id, "exam_results", [])
+    xp_events = read_user_json(user_id, "xp_events", [])
+    today_reward_id = f"daily_login:{date.today().isoformat()}"
+    reward_claimed = any(item.get("id") == today_reward_id for item in xp_events if isinstance(item, dict))
+    reward_col, reward_note = st.columns([1, 2])
+    with reward_col:
+        if st.button("Günlük giriş ödülünü al · +20 XP", key="claim_daily_login_xp",
+                     use_container_width=True, disabled=reward_claimed):
+            award_xp(user_id, today_reward_id, 20, "Günlük giriş ödülü")
+            st.toast("+20 AnkaXP kazandın.", icon="🔥")
+            st.rerun()
+    with reward_note:
+        st.caption("Giriş ödülü her gün bir kez alınabilir.")
+    profile = xp_profile(user_id)
     badges = [("🔥 İlk odak", bool(sessions)), ("📚 10 oturum", len(sessions) >= 10),
               ("🧩 5 tekrar", sum(int(item.get("review_count", 0)) for item in wrongs) >= 5),
-              ("✅ 10 görev", sum(bool(item.get("done")) for item in tasks) >= 10)]
-    badge_cols = st.columns(4)
-    for col, (badge, earned) in zip(badge_cols, badges):
-        col.markdown(f"<div class='soft-card' style='text-align:center;opacity:{1 if earned else .48}'>{badge}<br><b>{'Açıldı' if earned else 'Kilitli'}</b></div>", unsafe_allow_html=True)
+              ("✅ 10 görev", sum(bool(item.get("done")) for item in tasks) >= 10),
+              ("⚡ 50 TYT net", any(item.get("type", "TYT") == "TYT" and float(item.get("Toplam", 0)) >= 50 for item in exam_results)),
+              ("🤖 10 AI soru analizi", sum(bool(item.get("analysis")) for item in wrongs) >= 10)]
+    badge_cols = st.columns(3)
+    for badge_index, (badge, earned) in enumerate(badges):
+        col = badge_cols[badge_index % len(badge_cols)]
+        col.markdown(f"<div class='soft-card' style='text-align:center;opacity:{1 if earned else .48};margin:.25rem 0'>{badge}<br><b>{'Açıldı' if earned else 'Kilitli'}</b></div>", unsafe_allow_html=True)
 
     st.divider()
     st.markdown("### Arkadaş çalışma tablosu")
@@ -1291,6 +1334,10 @@ def render_dashboard(user_id: int, username: str) -> None:
     task_count = len(tasks)
     done_count = sum(bool(item.get("done")) for item in tasks)
     completion = round(100 * done_count / task_count) if task_count else 0
+    dashboard_topics = read_user_json(user_id, "topic_map", [])
+    dashboard_topics = dashboard_topics if isinstance(dashboard_topics, list) else []
+    topic_count = len(dashboard_topics)
+    topic_completion = round(100 * sum(item.get("status") == "Tamamlandı" for item in dashboard_topics) / topic_count) if topic_count else 0
     latest_exam = max(exam_results, key=lambda item: item.get("date", ""), default=None)
     latest_net = f"{latest_exam.get('Toplam', 0):g}" if latest_exam else "—"
     future_exams = []
@@ -1305,6 +1352,7 @@ def render_dashboard(user_id: int, username: str) -> None:
     exam_countdown = f"{nearest_exam[1].get('name', 'Sınav')} · {max(0, (nearest_exam[0] - today).days)} gün kaldı" if nearest_exam else "Tarih ekle"
     resource_count = sum(item.get("type") in {"kaynak_linki", "kaynak_pdf"} for item in records)
     weekly_goal = max(60, int(read_user_json(user_id, "weekly_goal", 900)))
+    daily_question_goal = max(1, int(read_user_json(user_id, "daily_question_goal", 40)))
     week_minutes = sum(int(item.get("minutes", 0)) for item in focus_logs
                        if (today - timedelta(days=6)).isoformat() <= item.get("date", "") <= today.isoformat())
     study_dates = {item.get("date") for item in focus_logs if item.get("date")}
@@ -1336,6 +1384,7 @@ def render_dashboard(user_id: int, username: str) -> None:
     st.markdown(f"""
     <section class="hero-card">
       <div class="hero-copy">
+      <div class="hero-badge">🔥 YKS 2027 ODAK STÜDYOSU</div>
       <div class="hero-eyebrow">ANKA · KİŞİSEL YKS STÜDYOSU</div>
         <h1>Selam {safe_name}.<br>Bugün hedeflerine bir adım daha.</h1>
         <p>Planını sade tut, ilerlemeni gör ve sıradaki doğru işe odaklan. Küçük ama düzenli adımlar büyük fark yaratır.</p>
@@ -1352,6 +1401,57 @@ def render_dashboard(user_id: int, username: str) -> None:
       </svg>
     </section>
     """, unsafe_allow_html=True)
+
+    # Görsel dosyası gerektirmeyen, metin odaklı bölüm keşif kaydırıcısı.
+    feature_items = [
+        {"category": "Odak & Süre", "title": "Odak seansı", "description": "Pomodoro akışını başlat, oturumlarını kaydet ve çalışma ritmini takip et.", "view": "🎯 Odak Modu", "accent": "#f07858"},
+        {"category": "Odak & Süre", "title": "TYT video kampları", "description": "Ders ve öğretmen seçerek konu anlatım videolarına çalışma alanından ulaş.", "view": "🎬 TYT Video Kampları", "accent": "#f3a05f"},
+        {"category": "Analiz & Netler", "title": "Deneme karnesi", "description": "TYT ve AYT sonuçlarını gir; net değişimini ve ders bazlı eğilimini incele.", "view": "📈 İlerleme", "accent": "#43c59e"},
+        {"category": "Analiz & Netler", "title": "Konu haritası", "description": "Konu durumunu, tekrar önceliğini ve kendi soru dağılımı notlarını izle.", "view": "🧭 Konu Haritası", "accent": "#4bc8ad"},
+        {"category": "Koçluk & AI", "title": "Kişisel koç", "description": "Günlük önceliğini belirle, planını düzenle ve JARVIS içgörülerini kullan.", "view": "🧠 Koç Merkezi", "accent": "#ae78f5"},
+        {"category": "Koçluk & AI", "title": "Günlük çalışma planı", "description": "Görevlerini sırala, tamamlananları işaretle ve haftalık düzenini kur.", "view": "📅 Program", "accent": "#bb72ef"},
+        {"category": "Koçluk & AI", "title": "Haber akışı", "description": "Günün öne çıkan haberlerini kısa bir akışta takip et.", "view": "Haberler", "accent": "#78a9ff"},
+        {"category": "Koçluk & AI", "title": "Hava durumu", "description": "Seçtiğin şehir için hava bilgisini ve günlük görünümü aç.", "view": "Hava Durumu", "accent": "#55c5dc"},
+        {"category": "Koçluk & AI", "title": "3D baskı maliyeti", "description": "Filament, elektrik ve hedef kâr marjına göre ürün fiyatını hesapla.", "view": "3D Baskı Maliyetleri", "accent": "#f0b94f"},
+    ]
+    feature_filter = st.radio("Bölümleri filtrele", ["Tümü", "Odak & Süre", "Analiz & Netler", "Koçluk & AI"],
+                              horizontal=True, label_visibility="collapsed", key="home_feature_filter")
+    visible_features = [item for item in feature_items if feature_filter == "Tümü" or item["category"] == feature_filter]
+    active_index = min(int(st.session_state.get("home_feature_index", 0)), len(visible_features) - 1)
+    st.session_state.home_feature_index = active_index
+    previous_index, next_index = (active_index - 1) % len(visible_features), (active_index + 1) % len(visible_features)
+    previous_feature, active_feature, next_feature = visible_features[previous_index], visible_features[active_index], visible_features[next_index]
+    st.markdown(f"<div class='feature-stage' style='--feature-accent:{active_feature['accent']}'><div class='feature-hint'><span>BÖLÜMLERİ KEŞFET</span><span>Kart seç · yatay kaydır · dokunarak gez</span></div></div>", unsafe_allow_html=True)
+    def show_feature_card(column, item, is_active: bool, key_suffix: str) -> None:
+        card_class = "feature-card is-active" if is_active else "feature-card is-side"
+        column.markdown(f"<div class='{card_class}' style='--feature-accent:{item['accent']}'><div class='feature-category'>{html.escape(item['category'])}</div><h3>{html.escape(item['title'])}</h3><p>{html.escape(item['description'])}</p></div>", unsafe_allow_html=True)
+        if not is_active and column.button("Bu bölümü seç", key=f"home_feature_{key_suffix}", use_container_width=True):
+            st.session_state.home_feature_index = previous_index if key_suffix == "previous" else next_index
+            st.rerun()
+    with st.container(key="home_feature_cards"):
+        prev_col, active_col, next_col = st.columns([.9, 1.2, .9], gap="small")
+        show_feature_card(prev_col, previous_feature, False, "previous")
+        show_feature_card(active_col, active_feature, True, "active")
+        show_feature_card(next_col, next_feature, False, "next")
+    route_col, move_col = st.columns([1.2, 1])
+    if route_col.button(f"{active_feature['title']} bölümünü aç →", key="home_feature_open", use_container_width=True):
+        navigate_to_view(active_feature["view"])
+        st.rerun()
+    move_col.caption("İpucu: Kartların üzerinde imleç sürükleme işaretine dönüşür; dokunmatik ekranda seçim düğmelerini kullan.")
+
+    st.markdown('<div class="section-kicker">Çalışma kontrol paneli</div>', unsafe_allow_html=True)
+    bento_left, bento_mid, bento_right = st.columns([1.25, 1.15, .9], gap="medium")
+    weekly_percent = min(100, round(100 * week_minutes / max(1, weekly_goal)))
+    bento_left.markdown(f"<div class='bento-card is-large'><div class='bento-label'>Son 7 gün · çalışma</div><div class='bento-value'>{week_minutes // 60} sa {week_minutes % 60:02d} dk</div><div class='bento-meter'><i style='width:{weekly_percent}%'></i></div><div class='bento-note'>Haftalık hedefinin %{weekly_percent}'i tamamlandı · hedef {weekly_goal // 60} saat</div></div>", unsafe_allow_html=True)
+    bento_mid.markdown(f"<div class='bento-card is-large'><div class='bento-label'>Konu haritası ilerlemesi</div><div class='bento-value'>%{topic_completion}</div><div class='bento-meter'><i style='width:{topic_completion}%'></i></div><div class='bento-note'>{sum(item.get('status') == 'Tamamlandı' for item in dashboard_topics)} / {topic_count} konu tamamlandı. {('Konularını Konu Haritası bölümünde güncelle.' if topic_count else 'İlk konunu Konu Haritası bölümüne ekleyerek başla.')}</div></div>", unsafe_allow_html=True)
+    with bento_right:
+        st.markdown(f"<div class='bento-card' style='min-height:0;margin-bottom:.65rem'><div class='bento-label'>Günlük soru hedefi</div><div class='bento-value' style='font-size:1.3rem'>{daily_question_goal} soru</div><div class='bento-note'>Günlük hedefini aşağıdan düzenle</div></div><div class='bento-card' style='min-height:0;margin-bottom:.65rem'><div class='bento-label'>Odak bugün</div><div class='bento-value' style='font-size:1.3rem'>{today_minutes} dk</div><div class='bento-note'>{sum(1 for item in focus_logs if item.get('date') == today.isoformat())} oturum kaydedildi</div></div><div class='bento-card' style='min-height:0;margin-bottom:.65rem'><div class='bento-label'>Sıradaki sınav</div><div class='bento-value' style='font-size:1.02rem'>{html.escape(exam_countdown)}</div></div><div class='bento-card' style='min-height:0'><div class='bento-label'>Günün önerisi</div><div class='bento-note' style='margin-top:.55rem'>{html.escape(insight)}</div></div>", unsafe_allow_html=True)
+        with st.expander("Günlük soru hedefini düzenle"):
+            new_question_goal = st.number_input("Soru hedefi", min_value=1, max_value=1000, step=5,
+                                                value=daily_question_goal, key="daily_question_goal_input")
+            if st.button("Soru hedefini kaydet", key="save_daily_question_goal"):
+                write_user_json(user_id, "daily_question_goal", int(new_question_goal))
+                st.rerun()
 
     if read_user_json(user_id, "bulletin_seen_date", "") != today.isoformat():
         checkin_line = f"Bugünkü durumun: {html.escape(str(today_checkin.get('mood', 'Dengeli')))} · enerji {int(today_checkin.get('energy', 3))}/5." if today_checkin else "Günlük mod ve enerji yoklamasını tamamla, planını bugünkü ritmine uyduralım."
@@ -1824,13 +1924,13 @@ def main():
     st.markdown(f"<style>{theme_css}</style>", unsafe_allow_html=True)
     if theme_mode != "Açık":
         phoenix_theme_css = """
-        :root { --ink:#f4eefa;--muted:#b5a8c0;--brand:#f05b61;--mint:#db8df0;--gold:#ffc578;--line:#3c2d45;--paper:#120e18; }
-        html,body,[data-testid="stAppViewContainer"] { background:#120e18!important;background-image:radial-gradient(ellipse at 82% 0%,#9e3db927,transparent 38%),radial-gradient(ellipse at 8% 36%,#dc39431c,transparent 34%),linear-gradient(145deg,#110d18,#18121e 52%,#120f19)!important;background-attachment:fixed!important; }
+        :root { --ink:#f4f5fa;--muted:#aab3c2;--brand:#a85cf2;--mint:#db8df0;--gold:#ffc578;--line:rgba(255,255,255,.08);--paper:#08090d; }
+        html,body,[data-testid="stAppViewContainer"] { background:#08090d!important;background-image:radial-gradient(ellipse at 82% 0%,#753da01c,transparent 38%),radial-gradient(ellipse at 8% 36%,#dc394318,transparent 34%),linear-gradient(145deg,#08090d,#0d1117 52%,#090b11)!important;background-attachment:fixed!important; }
         [data-testid="stAppViewContainer"] .main { color:#f4eefa!important; }
         h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
         [data-testid="stSidebar"] { background:linear-gradient(165deg,#211327,#17101d 60%,#100e17)!important;border-right:1px solid #6c355b!important; }
         [data-testid="stSidebar"] * { color:#f1eaf4; }
-        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#3c2d45!important;color:#f4eefa!important; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:rgba(18,24,38,.75)!important;backdrop-filter:blur(16px);border-color:rgba(255,255,255,.08)!important;color:#f4f5fa!important; }
         [data-testid="stMetricValue"],.soft-card h3 { color:#fff7ff!important; }
         .soft-card p,.empty-state { color:#bfb1c8!important; }
         .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#43314d!important; }
@@ -1864,6 +1964,14 @@ def main():
         st.markdown("<style>:root{--brand:#f06b42!important;--mint:#ff9f5b!important;--gold:#ffd06e!important}.hero-card{background:radial-gradient(circle at 82% 48%,#f3a54746,transparent 31%),linear-gradient(112deg,#211315,#58211f 58%,#a43b2c)!important}.phoenix-backdrop{opacity:.13!important}</style>", unsafe_allow_html=True)
     elif theme_mode == "🌌 Kozmik Anka":
         st.markdown("<style>:root{--brand:#a85cf2!important;--mint:#62d7ee!important;--gold:#f6b95b!important}.hero-card{background:radial-gradient(circle at 82% 48%,#9d5fff55,transparent 34%),linear-gradient(112deg,#110e1d,#271744 57%,#49234f)!important}.phoenix-backdrop{opacity:.14!important}</style>", unsafe_allow_html=True)
+    if theme_mode == "Açık":
+        st.markdown("""<style>
+        .feature-card,.bento-card { background:rgba(255,255,255,.78)!important;border-color:rgba(35,42,58,.11)!important;box-shadow:0 14px 38px #323b4b12,inset 0 1px 0 #ffffffb5!important; }
+        .feature-card.is-active { background:linear-gradient(145deg,color-mix(in srgb,var(--feature-accent) 9%,#fff),rgba(255,255,255,.9))!important;box-shadow:0 0 30px color-mix(in srgb,var(--feature-accent) 20%,transparent),0 18px 48px #323b4b14!important; }
+        .feature-card h3,.bento-value { color:#202838!important; }.feature-card p,.bento-note { color:#5c6678!important; }.bento-label,.feature-hint { color:#697386!important; }
+        .st-key-home_feature_filter [data-testid="stRadio"] label { background:#ffffffbb!important;border-color:#27324720!important; }
+        .st-key-home_feature_filter [data-testid="stRadio"] label p { color:#4f5a70!important; }.st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) { background:#f0e8fa!important;border-color:#a85cf288!important; }
+        </style>""", unsafe_allow_html=True)
     st.markdown("""<style>
     [data-testid="stAppViewContainer"] .main { position:relative; }
     [data-testid="stMainBlockContainer"] { position:relative; }
@@ -1909,6 +2017,18 @@ def main():
     .stToggle [data-baseweb="switch"] div[role="switch"] { background:#61416e; }
     a { color:#d98be8; }
     .stLinkButton a { border-radius:12px!important; }
+    .st-key-home_feature_filter [data-testid="stRadio"] [role="radiogroup"] { display:flex!important;flex-wrap:wrap;gap:.45rem!important; }
+    .st-key-home_feature_filter [data-testid="stRadio"] label { border:1px solid #ffffff14!important;border-radius:999px!important;background:#ffffff08!important;padding:.38rem .85rem!important;transition:all .22s ease!important; }
+    .st-key-home_feature_filter [data-testid="stRadio"] label p { color:#c9c3d0!important;font-size:.78rem!important;font-weight:700!important; }
+    .st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) { border-color:#b85fdd88!important;background:linear-gradient(100deg,#9e4bb42e,#db45562b)!important;box-shadow:0 0 18px #a34bbf20!important; }
+    .st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) p { color:#fff!important; }
+    .feature-hint { letter-spacing:.04em; }
+    .st-key-home_feature_cards { overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;cursor:grab;touch-action:pan-x; }
+    .st-key-home_feature_cards:active { cursor:grabbing; }
+    .st-key-home_feature_cards [data-testid="stHorizontalBlock"] { min-width:800px;scroll-snap-type:x mandatory; }
+    .st-key-home_feature_cards [data-testid="column"] { scroll-snap-align:center; }
+    .bento-card { transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
+    .bento-card:hover { transform:translateY(-2px);border-color:#a85cf244;box-shadow:0 16px 38px #08050f55,inset 0 1px 0 #ffffff0d; }
     .stButton button,.stDownloadButton button { border-radius:12px!important;background:linear-gradient(105deg,#a245c4,#d54362 68%,#ed7549)!important;color:#fff!important;border:0!important;box-shadow:0 7px 22px #9c356f2c!important; }
     .stButton button:hover,.stDownloadButton button:hover { filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 11px 30px #9c356f45!important; }
     [data-testid="stProgressBar"] > div > div { background:linear-gradient(90deg,#a34bc7,#d84467,#f07c4c)!important; }
