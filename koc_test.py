@@ -131,7 +131,14 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 </style>
 """, unsafe_allow_html=True)
 
-MEMORY_DIR = Path(__file__).resolve().parent / "yks_hafiza_kayitlari"
+APP_DIR = Path(__file__).resolve().parent
+MEMORY_DIR = APP_DIR / "yks_hafiza_kayitlari"
+# If the app was moved from its earlier folder, keep using the old account DB
+# instead of silently creating an empty database beside the moved script.
+for _candidate_memory_dir in (APP_DIR.parent / "yks_hafiza_kayitlari", APP_DIR.parent.parent / "yks_hafiza_kayitlari"):
+    if (_candidate_memory_dir / "yks_kocu.sqlite3").is_file():
+        MEMORY_DIR = _candidate_memory_dir
+        break
 MAX_MEMORY_CHARS = 4000
 MEMORY_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = MEMORY_DIR / "yks_kocu.sqlite3"
@@ -221,6 +228,9 @@ def create_account(username: str, password: str):
 
 
 def authenticate(username: str, password: str):
+    # The four-digit registration flow can accidentally receive a trailing
+    # space from mobile keyboards or password managers.
+    password = password.strip()
     with db_connect() as db:
         row = db.execute("SELECT id,password_hash,salt FROM users WHERE username=? COLLATE NOCASE", (username.strip(),)).fetchone()
     if not row or not hmac.compare_digest(password_digest(password, row["salt"]), row["password_hash"]):
@@ -315,6 +325,11 @@ def logout_user() -> None:
     # Aynı tarayıcıdan başka hesapla giriş yapılırken önceki hesabın arayüz önbelleğini temizle.
     for key in list(st.session_state.keys()):
         del st.session_state[key]
+
+
+def persist_theme_preference(user_id: int) -> None:
+    selected = st.session_state.get("theme_mode", "Koyu")
+    write_user_json(user_id, "theme_preference", selected)
 
 
 def configure_gemini() -> bool:
@@ -1583,7 +1598,13 @@ def phoenix_watermark_svg() -> str:
 
 def render_login() -> None:
     theme_picker_columns = st.columns([1, 1, 1])
-    theme_mode = theme_picker_columns[1].selectbox("Tema", ["Açık", "Koyu"], index=1, key="theme_mode", label_visibility="collapsed")
+    theme_mode = theme_picker_columns[1].selectbox("Görünüm", ["Açık", "Koyu"], index=1,
+                                                     format_func=lambda value: "☀️ Fildişi" if value == "Açık" else "🌑 Obsidyen",
+                                                     key="login_theme_mode")
+    theme_picker_columns[1].markdown(
+        "<div style='height:7px;border-radius:99px;margin:-.45rem 0 .8rem;background:" +
+        ("linear-gradient(90deg,#fbf8fb,#fffafd,#c94355,#9b4db1)" if theme_mode == "Açık" else "linear-gradient(90deg,#10141b,#1a2029,#ff5148,#ffb24c)") +
+        "'></div>", unsafe_allow_html=True)
     background_path = Path(__file__).resolve().parent / "assets" / "login_mountains.png"
     background_rule = ""
     mountain_rules = ""
@@ -1673,14 +1694,17 @@ def render_login() -> None:
         auth_mode = st.radio("Hesap işlemi", ["Giriş yap", "Hesap oluştur"], horizontal=True,
                              label_visibility="collapsed", key="auth_mode")
         if auth_mode == "Giriş yap":
+            show_password = st.checkbox("Parolayı göster", key="show_login_password")
             with st.form("login_form"):
                 username = st.text_input("Kullanıcı adı", placeholder="kullaniciadi", max_chars=32, key="login_username")
-                password = st.text_input("Parola", type="password", placeholder="Parolan", max_chars=128, key="login_password")
+                password = st.text_input("Parola", type="default" if show_password else "password",
+                                         placeholder="Parolan", max_chars=128, key="login_password")
+                st.caption("Mevcut hesabının parolasını aynen gir. Yeni hesap parolası 4 rakamdır.")
                 login = st.form_submit_button("Giriş yap  →", use_container_width=True)
             if login:
                 user_id = authenticate(username, password)
                 if user_id is None:
-                    st.error("Kullanıcı adı veya parola hatalı.")
+                    st.error("Kullanıcı adı veya parola eşleşmedi. Parolanı kontrol et; hesabını başka bir kurulumda açtıysan o kurulumun veritabanı bu uygulamaya bağlı olmayabilir.")
                 else:
                     st.session_state.user_id = user_id
                     st.session_state.username = username.strip()
@@ -1699,10 +1723,15 @@ def render_login() -> None:
                     if error:
                         st.error(error)
                     else:
+                        selected_theme = st.session_state.get("login_theme_mode", "Koyu")
+                        write_user_json(user_id, "theme_preference", selected_theme)
                         st.session_state.user_id = user_id
                         st.session_state.username = new_username.strip()
                         st.rerun()
-        st.caption("Parolan korunur · hesap verilerin bu çalışma alanında saklanır")
+        st.caption("Parolan korunur · aynı hesap veritabanının bulunduğu kurulumdan giriş yap")
+    with st.expander("Giriş hâlâ olmuyor mu?"):
+        st.caption("Kullanıcı adını ve parolayı oluştururken kullandığın uygulama kurulumuyla aynı hesabı kullan. Hesabın başka klasördeki bir veritabanında kalmış olabilir.")
+        st.code(str(DB_PATH), language=None)
 
 def main():
     if "user_id" not in st.session_state:
@@ -1714,6 +1743,16 @@ def main():
 
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
+    current_xp = xp_profile(user_id)["xp"]
+    unlocked_themes = ["Açık", "Koyu"]
+    if current_xp >= 300:
+        unlocked_themes.append("🔥 Alev Kanatlı")
+    if current_xp >= 700:
+        unlocked_themes.append("🌌 Kozmik Anka")
+    if st.session_state.get("theme_owner_id") != user_id:
+        saved_theme = read_user_json(user_id, "theme_preference", "Koyu")
+        st.session_state["theme_mode"] = saved_theme if saved_theme in unlocked_themes else "Koyu"
+        st.session_state["theme_owner_id"] = user_id
     with st.sidebar:
         st.markdown(f'<div class="side-brand"><span class="side-mark">{phoenix_mark_svg(25)}</span><span>ANKA <small style="display:block;color:#beaac9;font-weight:550;letter-spacing:.15em">YKS ÇALIŞMA STÜDYOSU</small></span></div>', unsafe_allow_html=True)
         safe_sidebar_name = html.escape(st.session_state.get("username", "Kullanıcı"), quote=True)
@@ -1729,13 +1768,21 @@ def main():
                 (st.success if restored else st.error)(restore_message)
                 if restored:
                     st.rerun()
-        unlocked_themes = ["Açık", "Koyu"]
-        current_xp = xp_profile(user_id)["xp"]
-        if current_xp >= 300:
-            unlocked_themes.append("🔥 Alev Kanatlı")
-        if current_xp >= 700:
-            unlocked_themes.append("🌌 Kozmik Anka")
-        theme_mode = st.selectbox("🎨 Tema", unlocked_themes, index=1, key="theme_mode")
+        theme_labels = {"Açık": "☀️ Fildişi", "Koyu": "🌑 Obsidyen",
+                        "🔥 Alev Kanatlı": "🔥 Anka Alevi", "🌌 Kozmik Anka": "🌌 Kozmik Anka"}
+        theme_mode = st.selectbox("Görünüm stüdyosu", unlocked_themes, key="theme_mode",
+                                  format_func=lambda value: theme_labels.get(value, value),
+                                  on_change=persist_theme_preference, args=(user_id,))
+        theme_descriptions = {"Açık": "Açık zemin · yumuşak mor ve kızıl vurgu",
+                              "Koyu": "Koyu zemin · sıcak anka vurguları",
+                              "🔥 Alev Kanatlı": "Kızıl-turuncu · güçlü kontrast",
+                              "🌌 Kozmik Anka": "Mor-mavi · gece görünümü"}
+        palette = {"Açık": "linear-gradient(90deg,#fbf8fb,#fffafd,#c94355,#9b4db1)",
+                   "Koyu": "linear-gradient(90deg,#10141b,#1a2029,#ff5148,#ffb24c)",
+                   "🔥 Alev Kanatlı": "linear-gradient(90deg,#211315,#58211f,#f06b42,#ffd06e)",
+                   "🌌 Kozmik Anka": "linear-gradient(90deg,#110e1d,#271744,#a85cf2,#62d7ee)"}
+        st.caption(theme_descriptions.get(theme_mode, ""))
+        st.markdown(f"<div style='height:8px;border-radius:99px;margin:-.35rem 0 .8rem;background:{palette.get(theme_mode, palette['Koyu'])}'></div>", unsafe_allow_html=True)
         st.divider()
 
     if theme_mode != "Açık":
