@@ -50,7 +50,7 @@ except ImportError:
 
 
 # Sayfa yapılandırması Streamlit komutları arasında ilk sırada olmalıdır.
-st.set_page_config(page_title="ANKA · YKS Çalışma Stüdyosu", page_icon="🔥", layout="wide")
+st.set_page_config(page_title="JARVIS · YKS Çalışma Stüdyosu", page_icon="⚡", layout="wide")
 
 st.markdown("""
 <style>
@@ -95,6 +95,17 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .hero-card p { color:#d0d9e9; font-size:1rem; max-width:520px; margin:0; }
 .hero-pill { display:inline-flex; margin-top:1.25rem; padding:.48rem .8rem; border:1px solid #ffffff35; border-radius:999px; background:#ffffff12; color:#f2f6ff; font-size:.8rem; }
 .hero-art { width:min(31%,300px); min-width:180px; position:relative; z-index:1; }
+.stark-reactor { width:min(33%,310px);min-width:205px;aspect-ratio:1;display:grid;place-items:center;position:relative;z-index:1;isolation:isolate; }
+.stark-reactor:before { content:"";position:absolute;inset:9%;border-radius:50%;background:radial-gradient(circle,#08c9e51c 0 22%,#08c9e50a 42%,transparent 70%);filter:blur(8px);animation:reactor-pulse 3s ease-in-out infinite; }
+.reactor-ring { position:absolute;inset:14%;border:1px solid #58e8ff70;border-radius:50%;box-shadow:0 0 22px #08c9e52a,inset 0 0 18px #08c9e519; }
+.reactor-ring.ring-outer { inset:5%;border-style:dashed;border-color:#d94e7470;animation:reactor-spin 24s linear infinite; }
+.reactor-ring.ring-mid { inset:22%;border-width:2px;border-left-color:transparent;border-right-color:#ff627c;animation:reactor-spin 12s linear infinite reverse; }
+.reactor-ring.ring-inner { inset:31%;border-color:#57eaff99;box-shadow:0 0 26px #20d8f377,inset 0 0 20px #20d8f333; }
+.reactor-core { width:27%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 38% 32%,#fff 0 3%,#a9faff 10%,#2ddaf2 28%,#15709b 55%,#ff587b 82%,#57142f 100%);box-shadow:0 0 12px #61f2ff,0 0 38px #00c8ff9c,0 0 70px #e7447160;animation:reactor-core-pulse 2.8s ease-in-out infinite; }
+.reactor-label { position:absolute;bottom:2%;color:#c9e9f4;font:700 .57rem ui-monospace,Consolas,monospace;letter-spacing:.19em;text-align:center;text-shadow:0 0 12px #1ad8ff8a; }
+@keyframes reactor-spin { to { transform:rotate(360deg); } }
+@keyframes reactor-pulse { 0%,100% { opacity:.45;transform:scale(.94); } 50% { opacity:.95;transform:scale(1.04); } }
+@keyframes reactor-core-pulse { 0%,100% { filter:brightness(.9);transform:scale(.96); } 50% { filter:brightness(1.28);transform:scale(1.04); } }
 .section-kicker { color:var(--brand); font-size:.72rem; font-weight:750; text-transform:uppercase; letter-spacing:.13em; margin-bottom:.35rem; }
 .soft-card { height:100%; padding:1.15rem 1.25rem; border:1px solid var(--line); border-radius:16px; background:white; box-shadow:0 4px 16px #1d2c4408; }
 .soft-card h3 { margin:.25rem 0 .4rem; } .soft-card p { margin:0; font-size:.91rem; line-height:1.55; }
@@ -127,7 +138,7 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .focus-subject { color:#d0c5bd;font-size:.95rem; }
 .hero-badge { display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .68rem;border:1px solid #ffffff20;border-radius:999px;background:#ffffff10;color:#ffe1ad;font-size:.68rem;font-weight:800;letter-spacing:.11em;backdrop-filter:blur(12px); }
 .hero-card h1 { background:linear-gradient(180deg,#fff 0%,#d4d4dc 100%);-webkit-background-clip:text;background-clip:text;color:transparent!important; }
-.feature-stage { --feature-accent:#a85cf2;position:relative;isolation:isolate;padding:1.1rem 0 1.35rem;margin:.2rem 0 1rem; }
+.feature-stage { --feature-accent:#08c9e5;position:relative;isolation:isolate;padding:1.1rem 0 1.35rem;margin:.2rem 0 1rem; }
 .feature-stage:before { content:"";position:absolute;z-index:-1;inset:5% 12%;background:radial-gradient(ellipse at 50% 52%,color-mix(in srgb,var(--feature-accent) 26%,transparent),transparent 68%);filter:blur(42px);opacity:.76;animation:feature-aura 1s ease both; }
 .feature-card { position:relative;overflow:hidden;min-height:205px;padding:1.2rem 1.3rem;border:1px solid rgba(255,255,255,.08);border-radius:21px;background:rgba(18,24,38,.75);backdrop-filter:blur(16px);box-shadow:0 14px 38px #0004,inset 0 1px 0 #ffffff0c;cursor:grab;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease,background .35s ease;animation:feature-enter .45s ease both; }
 .feature-card:active { cursor:grabbing; }
@@ -144,13 +155,14 @@ p, label, [data-testid="stCaptionContainer"] { color:var(--muted); }
 .bento-value { margin:.55rem 0;color:#f6f7fb;font-size:clamp(1.35rem,2.8vw,2rem);font-weight:780;letter-spacing:-.04em;font-variant-numeric:tabular-nums; }
 .bento-note { color:#aab4c4;font-size:.82rem;line-height:1.5; }
 .bento-meter { height:7px;margin:.7rem 0;border-radius:99px;background:#ffffff12;overflow:hidden; }
-.bento-meter i { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#a85cf2,#e45b75); }
+.bento-meter i { display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--brand),var(--mint),var(--gold)); }
 @keyframes feature-aura { from {opacity:.2;transform:translateX(-4%)} to {opacity:.76;transform:translateX(4%)} }
 @keyframes feature-enter { from {opacity:.5;transform:translateY(5px)} to {opacity:1;transform:translateY(0)} }
 @keyframes border-sweep { from {left:-70%} to {left:130%} }
 [data-testid="stMetricValue"],.focus-clock,.hero-pill,.bento-value { font-variant-numeric:tabular-nums;font-feature-settings:"tnum"; }
 @media(max-width:760px) { .feature-card,.feature-card.is-active { min-height:175px;padding:1rem; }.feature-card.is-side { transform:scale(.98); } }
 @media(prefers-reduced-motion:reduce) { .feature-card,.feature-card:before,.feature-stage:before { animation:none!important;transition:none!important; } }
+@media(prefers-reduced-motion:reduce) { .reactor-ring,.reactor-core,.stark-reactor:before { animation:none!important; } }
 @media(max-width:760px) { .week-empty { min-height:180px;padding:1rem;gap:.8rem; } .week-bars { gap:4px;padding:8px; } .week-bars i { width:8px; } }
 @media(max-width:760px) { [data-testid="stMainBlockContainer"] { padding:1rem 1rem 3rem; } .hero-card { min-height:200px; padding:1.5rem; border-radius:19px; } .hero-art { width:26%; min-width:100px; } .hero-card h1 { font-size:2rem; } [data-testid="stTabs"] [data-baseweb="tab"] { padding:0 9px; font-size:.82rem; } }
 @media(prefers-reduced-motion:reduce) { *, *:before, *:after { transition:none !important; scroll-behavior:auto !important; } }
@@ -285,7 +297,7 @@ def restore_account_backup(user_id: int, uploaded_file) -> tuple[bool, str]:
             return False, "Yedek dosyası 10 MB sınırını aşıyor."
         payload = json.loads(uploaded_file.getvalue().decode("utf-8"))
         if not isinstance(payload, dict) or payload.get("format_version") != 1:
-            return False, "Bu dosya tanınan ANKA yedek biçiminde değil."
+            return False, "Bu dosya uygulamanın tanıdığı yedek biçiminde değil."
         if payload.get("offline_kit") is True:
             events = payload.get("changes", [])
             if not isinstance(events, list) or len(events) > 5000:
@@ -509,8 +521,8 @@ def award_xp(user_id: int, event_id: str, points: int, label: str) -> None:
 def xp_profile(user_id: int) -> dict:
     events = read_user_json(user_id, "xp_events", [])
     xp = sum(max(0, int(item.get("points", 0))) for item in events if isinstance(item, dict))
-    ranks = [(0, "Közden Doğan"), (100, "Anka Yavrusu"), (300, "Alev Kanatlı"),
-             (700, "Göklerin Anka'sı"), (1500, "Efsanevi Anka")]
+    ranks = [(0, "Yeni Başlayan"), (100, "Hızlı Öğrenen"), (300, "Sistem Tasarımcısı"),
+             (700, "Üst Düzey Mühendis"), (1500, "Komuta Merkezi")]
     rank_index = max(index for index, (threshold, _) in enumerate(ranks) if xp >= threshold)
     threshold, title = ranks[rank_index]
     next_threshold = ranks[rank_index + 1][0] if rank_index + 1 < len(ranks) else threshold
@@ -523,14 +535,14 @@ def offline_kit_html(user_id: int) -> str:
             "questions": read_user_json(user_id, "wrong_questions", []),
             "notes": read_user_json(user_id, "notes", [])}
     seed_json = json.dumps(seed, ensure_ascii=False).replace("</", "<\\/")
-    page = r'''<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#17121f"><title>ANKA · Çevrimdışı çalışma</title>
-<style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#522248,#12121a 48%);color:#f7eff8;font:16px system-ui,sans-serif}main{max-width:900px;margin:auto;padding:24px}header,.card{background:#211c2acc;border:1px solid #ffffff20;border-radius:20px;padding:20px;margin:14px 0;backdrop-filter:blur(14px)}h1{margin:0;color:#ffbe83}small,.muted{color:#c9bbce}button{background:linear-gradient(110deg,#9b43bd,#d34463);color:white;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}input,textarea{background:#15141c;color:#fff;border:1px solid #514257;border-radius:10px;padding:10px;width:100%;margin:6px 0}li{margin:10px 0}.timer{font-size:64px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}.row{display:flex;gap:10px;align-items:center}.row button{flex:none}</style>
-<main><header><small>ANKA · YKS ÇALIŞMA STÜDYOSU</small><h1>Çevrimdışı çalışma kiti</h1><p class="muted">Bu tek dosya internet olmadan çalışır. Kayıtlar bu cihazın tarayıcı deposunda tutulur.</p></header>
+    page = r'''<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080d15"><title>JARVIS · Çevrimdışı çalışma</title>
+<style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% 0,#08c9e525,transparent 38%),linear-gradient(145deg,#080d15,#111a28 58%,#090f18);color:#eff6fc;font:16px system-ui,sans-serif}main{max-width:900px;margin:auto;padding:24px}header,.card{background:#101b29cc;border:1px solid #8adce52a;border-radius:20px;padding:20px;margin:14px 0;backdrop-filter:blur(14px);box-shadow:0 12px 36px #03080e55}h1{margin:0;color:#91eaf2}small,.muted{color:#a9bac8}button{background:linear-gradient(110deg,#087f9c,#08b7cf 68%,#ef536f);color:#07131b;border:0;border-radius:12px;padding:11px 16px;font-weight:700;cursor:pointer}input,textarea{background:#0d1724;color:#fff;border:1px solid #385366;border-radius:10px;padding:10px;width:100%;margin:6px 0}li{margin:10px 0}.timer{font-size:64px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}.row{display:flex;gap:10px;align-items:center}.row button{flex:none}</style>
+<main><header><small>JARVIS · YKS ÇALIŞMA STÜDYOSU</small><h1>Çevrimdışı çalışma kiti</h1><p class="muted">Bu tek dosya internet olmadan çalışır. Kayıtlar bu cihazın tarayıcı deposunda tutulur.</p></header>
 <section class="card"><h2>Odak sayacı</h2><div class="timer" id="clock">25:00</div><div class="row"><button onclick="toggleTimer()" id="timerBtn">Başlat</button><button onclick="resetTimer()">Sıfırla</button><select id="subject"><option>Matematik</option><option>Türkçe</option><option>Fizik</option><option>Kimya</option><option>Biyoloji</option><option>Diğer</option></select></div></section>
 <section class="card"><h2>Bugünkü plan</h2><ul id="tasks"></ul></section><section class="card"><h2>Yanlış soru tekrarların</h2><ul id="questions"></ul></section>
 <section class="card"><h2>Çevrimdışı not</h2><textarea id="note" rows="3" placeholder="Notunu yaz..."></textarea><button onclick="saveNote()">Notu kaydet</button><ul id="notes"></ul></section>
-<section class="card"><h2>Siteyle eşitle</h2><p class="muted">İnternet gelince değişiklik dosyasını indirip ANKA’daki “Yedekten geri yükle” alanına aktar. Eşitleme yalnızca bu dosyayı seçtiğinde yapılır.</p><button onclick="exportChanges()">Değişiklikleri JSON indir</button> <label><input type="file" id="importFile" accept="application/json" onchange="importChanges(event)">Değişiklik JSON’unu içe al</label></section></main>
-<script>const SEED=__SEED__;const STORE='anka_offline_v1';function localDate(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}let state=JSON.parse(localStorage.getItem(STORE)||'null')||{tasks:SEED.tasks,questions:SEED.questions,notes:SEED.notes,changes:[]};function save(){localStorage.setItem(STORE,JSON.stringify(state))}function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}function render(){const t=document.getElementById('tasks');t.replaceChildren();state.tasks.filter(x=>x.date===localDate()).forEach(x=>{const li=el('li','');const c=document.createElement('input');c.type='checkbox';c.checked=!!x.done;c.onchange=()=>{x.done=c.checked;state.changes.push({type:'task_done',task_id:x.id,done:x.done});save()};li.append(c,document.createTextNode(' '+[x.subject,x.topic,x.target].filter(Boolean).join(' · ')));t.append(li)});const q=document.getElementById('questions');q.replaceChildren();state.questions.filter(x=>!x.mastered).forEach(x=>q.append(el('li',[x.subject,x.topic,'Tekrar: '+(x.next_review||'belirlenmedi')].filter(Boolean).join(' · '))));const n=document.getElementById('notes');n.replaceChildren();state.notes.slice(-20).reverse().forEach(x=>n.append(el('li',typeof x==='string'?x:x.text||'')))}function saveNote(){const v=document.getElementById('note').value.trim();if(!v)return;const id=crypto.randomUUID();state.notes.push({id,text:v});state.changes.push({type:'note',id,text:v});document.getElementById('note').value='';save();render()}let left=1500,handle=null;function paint(){document.getElementById('clock').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')}function toggleTimer(){if(handle){clearInterval(handle);handle=null;document.getElementById('timerBtn').textContent='Devam et';return}document.getElementById('timerBtn').textContent='Duraklat';handle=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(handle);handle=null;state.changes.push({type:'study_session',id:crypto.randomUUID(),date:localDate(),minutes:25,subject:document.getElementById('subject').value});save();document.getElementById('timerBtn').textContent='Seans tamamlandı'}},1000)}function resetTimer(){if(handle)clearInterval(handle);handle=null;left=1500;paint();document.getElementById('timerBtn').textContent='Başlat'}function exportChanges(){const data={format_version:1,offline_kit:true,changes:state.changes};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='anka-cevrimdisi-degisiklikler.json';a.click();URL.revokeObjectURL(a.href)}function importChanges(e){const f=e.target.files[0];if(!f)return;f.text().then(s=>{const d=JSON.parse(s);if(d.offline_kit&&Array.isArray(d.changes)){state.changes.push(...d.changes);save();alert('Değişiklikler içe alındı.');}}).catch(()=>alert('Dosya okunamadı.'))}render();paint();</script></html>'''
+<section class="card"><h2>Siteyle eşitle</h2><p class="muted">İnternet gelince değişiklik dosyasını indirip JARVIS içindeki “Yedekten geri yükle” alanına aktar. Eşitleme yalnızca bu dosyayı seçtiğinde yapılır.</p><button onclick="exportChanges()">Değişiklikleri JSON indir</button> <label><input type="file" id="importFile" accept="application/json" onchange="importChanges(event)">Değişiklik JSON’unu içe al</label></section></main>
+<script>const SEED=__SEED__;const STORE='anka_offline_v1';function localDate(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}let state=JSON.parse(localStorage.getItem(STORE)||'null')||{tasks:SEED.tasks,questions:SEED.questions,notes:SEED.notes,changes:[]};function save(){localStorage.setItem(STORE,JSON.stringify(state))}function el(tag,text){const n=document.createElement(tag);n.textContent=text;return n}function render(){const t=document.getElementById('tasks');t.replaceChildren();state.tasks.filter(x=>x.date===localDate()).forEach(x=>{const li=el('li','');const c=document.createElement('input');c.type='checkbox';c.checked=!!x.done;c.onchange=()=>{x.done=c.checked;state.changes.push({type:'task_done',task_id:x.id,done:x.done});save()};li.append(c,document.createTextNode(' '+[x.subject,x.topic,x.target].filter(Boolean).join(' · ')));t.append(li)});const q=document.getElementById('questions');q.replaceChildren();state.questions.filter(x=>!x.mastered).forEach(x=>q.append(el('li',[x.subject,x.topic,'Tekrar: '+(x.next_review||'belirlenmedi')].filter(Boolean).join(' · '))));const n=document.getElementById('notes');n.replaceChildren();state.notes.slice(-20).reverse().forEach(x=>n.append(el('li',typeof x==='string'?x:x.text||'')))}function saveNote(){const v=document.getElementById('note').value.trim();if(!v)return;const id=crypto.randomUUID();state.notes.push({id,text:v});state.changes.push({type:'note',id,text:v});document.getElementById('note').value='';save();render()}let left=1500,handle=null;function paint(){document.getElementById('clock').textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0')}function toggleTimer(){if(handle){clearInterval(handle);handle=null;document.getElementById('timerBtn').textContent='Devam et';return}document.getElementById('timerBtn').textContent='Duraklat';handle=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(handle);handle=null;state.changes.push({type:'study_session',id:crypto.randomUUID(),date:localDate(),minutes:25,subject:document.getElementById('subject').value});save();document.getElementById('timerBtn').textContent='Seans tamamlandı'}},1000)}function resetTimer(){if(handle)clearInterval(handle);handle=null;left=1500;paint();document.getElementById('timerBtn').textContent='Başlat'}function exportChanges(){const data={format_version:1,offline_kit:true,changes:state.changes};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='jarvis-cevrimdisi-degisiklikler.json';a.click();URL.revokeObjectURL(a.href)}function importChanges(e){const f=e.target.files[0];if(!f)return;f.text().then(s=>{const d=JSON.parse(s);if(d.offline_kit&&Array.isArray(d.changes)){state.changes.push(...d.changes);save();alert('Değişiklikler içe alındı.');}}).catch(()=>alert('Dosya okunamadı.'))}render();paint();</script></html>'''
     return page.replace("const SEED=__SEED__;", f"const SEED={seed_json};")
 
 
@@ -1200,10 +1212,10 @@ def render_shared_room(user_id: int, code: str) -> None:
         st.success("Ortak seans tamamlandı ve çalışma geçmişine eklendi.")
 
 
-def render_anka_social(user_id: int, username: str) -> None:
-    st.markdown("# 🔥 AnkaXP · Arkadaş modu")
+def render_jarvis_social(user_id: int, username: str) -> None:
+    st.markdown("# ⚡ JARVIS XP · Arkadaş modu")
     profile = xp_profile(user_id)
-    st.markdown(f"<div class='soft-card' style='border-left:4px solid #df5d66'><span class='section-kicker'>ANKA SEVİYESİ</span><h2>{profile['title']} · {profile['xp']} XP</h2><p>Çalışma oturumları, tamamlanan planlı görevler ve tekrar edilen yanlış sorular XP kazandırır.</p></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='soft-card' style='border-left:4px solid #08c9e5'><span class='section-kicker'>GELİŞİM SEVİYESİ</span><h2>{profile['title']} · {profile['xp']} XP</h2><p>Çalışma oturumları, tamamlanan planlı görevler ve tekrar edilen yanlış sorular XP kazandırır.</p></div>", unsafe_allow_html=True)
     st.progress(profile["progress"], text=f"Sonraki seviye: {profile['next']} XP" if profile["next"] > profile["xp"] else "En yüksek seviye")
     st.markdown("### Rozet hedefleri")
     sessions = read_user_json(user_id, "study_sessions", [])
@@ -1218,7 +1230,7 @@ def render_anka_social(user_id: int, username: str) -> None:
         if st.button("Günlük giriş ödülünü al · +20 XP", key="claim_daily_login_xp",
                      use_container_width=True, disabled=reward_claimed):
             award_xp(user_id, today_reward_id, 20, "Günlük giriş ödülü")
-            st.toast("+20 AnkaXP kazandın.", icon="🔥")
+            st.toast("+20 JARVIS XP kazandın.", icon="⚡")
             st.rerun()
     with reward_note:
         st.caption("Giriş ödülü her gün bir kez alınabilir.")
@@ -1311,11 +1323,11 @@ def render_offline_kit(user_id: int) -> None:
     st.markdown("# 📦 Çevrimdışı çalışma")
     st.caption("İnternet olmadan açılan tek HTML dosyası: görevleri gör, Pomodoro çalıştır, not al ve yanlış sorularını oku.")
     st.download_button("⬇️ Çevrimdışı çalışma dosyasını indir", offline_kit_html(user_id),
-                       file_name="anka-cevrimdisi-calisma.html", mime="text/html", use_container_width=True)
+                       file_name="jarvis-cevrimdisi-calisma.html", mime="text/html", use_container_width=True)
     st.info("Bu yardımcı PWA değildir; indirilen dosya cihazında yerel çalışır. Çevrimdışı eklediğin not ve çalışma kayıtlarını JSON olarak dışa aktarıp buradaki yedek alanından içe aktararak eşitleyebilirsin. Otomatik arka plan eşitlemesi bu Streamlit sürümünde yoktur.")
 
 
-def render_dashboard(user_id: int, username: str) -> None:
+def render_dashboard(user_id: int, username: str, api_ready: bool = False) -> None:
     tasks = read_user_json(user_id, "study_tasks", [])
     focus_logs = read_user_json(user_id, "study_sessions", [])
     exam_results = read_user_json(user_id, "exam_results", [])
@@ -1384,21 +1396,19 @@ def render_dashboard(user_id: int, username: str) -> None:
     st.markdown(f"""
     <section class="hero-card">
       <div class="hero-copy">
-      <div class="hero-badge">🔥 YKS 2027 ODAK STÜDYOSU</div>
-      <div class="hero-eyebrow">ANKA · KİŞİSEL YKS STÜDYOSU</div>
+      <div class="hero-badge">JARVIS CORE · YKS 2027</div>
+      <div class="hero-eyebrow">KİŞİSEL ÇALIŞMA KOMUTA MERKEZİ</div>
         <h1>Selam {safe_name}.<br>Bugün hedeflerine bir adım daha.</h1>
         <p>Planını sade tut, ilerlemeni gör ve sıradaki doğru işe odaklan. Küçük ama düzenli adımlar büyük fark yaratır.</p>
         <span class="hero-pill">✦ &nbsp; {today_name}, {today:%d.%m.%Y} &nbsp;·&nbsp; Bugünün çalışma alanı</span>
         <span class="hero-pill" style="margin-left:.45rem">🎓 &nbsp; {html.escape(exam_countdown)}</span>
       </div>
-      <svg class="hero-art phoenix-hero" viewBox="0 0 300 220" role="img" aria-label="Kızıl ve mor alevlerden doğan Anka kuşu çizimi">
-        <defs><linearGradient id="phoenixWing" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffc274"/><stop offset=".48" stop-color="#ff665f"/><stop offset="1" stop-color="#c878ff"/></linearGradient><radialGradient id="phoenixAura"><stop stop-color="#ff9970" stop-opacity=".45"/><stop offset="1" stop-color="#a443d3" stop-opacity="0"/></radialGradient></defs>
-        <circle cx="154" cy="113" r="101" fill="url(#phoenixAura)"/><circle cx="154" cy="113" r="76" fill="#ffffff08" stroke="#ffffff25"/>
-        <path d="M148 158c-21-16-37-36-43-66 20 17 37 23 53 24-10-27-6-52 11-78 4 30 16 49 36 62-1-27 10-50 34-68-7 40-1 68 20 92-24-7-43-17-56-31 7 26 2 49-14 70-7-23-18-39-34-48 0 18-2 32-7 43Z" fill="url(#phoenixWing)" opacity=".94"/>
-        <path d="M146 91c-14-17-28-29-47-38 8 19 14 34 18 50-17-10-35-14-57-13 18 13 31 28 38 45-17-5-33-6-50-2 20 8 36 18 49 32-12 1-24 5-36 12 22 0 42 4 58 14M162 91c14-17 28-29 47-38-8 19-14 34-18 50 17-10 35-14 57-13-18 13-31 28-38 45 17-5 33-6 50-2-20 8-36 18-49 32 12 1 24 5 36 12-22 0-42 4-58 14" fill="none" stroke="url(#phoenixWing)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M149 163c-10 11-18 22-24 35m38-35c10 11 18 22 24 35M154 68c-5-13-4-25 3-38 9 14 10 27 3 39" fill="none" stroke="#ffdc9c" stroke-width="5" stroke-linecap="round"/>
-        <circle cx="153" cy="107" r="4" fill="#fff4d6"/><path d="m158 106 12 3-11 5" fill="#ffe0a4"/>
-      </svg>
+      <div class="hero-art stark-reactor" role="img" aria-label="JARVIS çekirdeğini temsil eden animasyonlu reaktör arayüzü">
+        <span class="reactor-ring ring-outer"></span><span class="reactor-ring"></span>
+        <span class="reactor-ring ring-mid"></span><span class="reactor-ring ring-inner"></span>
+        <span class="reactor-core"></span>
+        <span class="reactor-label">J.A.R.V.I.S. CORE · {"ONLINE" if api_ready else "LOCAL MODE"}</span>
+      </div>
     </section>
     """, unsafe_allow_html=True)
 
@@ -1455,7 +1465,7 @@ def render_dashboard(user_id: int, username: str) -> None:
 
     if read_user_json(user_id, "bulletin_seen_date", "") != today.isoformat():
         checkin_line = f"Bugünkü durumun: {html.escape(str(today_checkin.get('mood', 'Dengeli')))} · enerji {int(today_checkin.get('energy', 3))}/5." if today_checkin else "Günlük mod ve enerji yoklamasını tamamla, planını bugünkü ritmine uyduralım."
-        st.markdown(f"<div class='soft-card' style='margin:.4rem 0 1rem;border-left:4px solid #e56754;background:linear-gradient(110deg,#21182a,#302035)!important;color:#fff'><span class='section-kicker' style='color:#ffbf80!important'>☀️ GÜNLÜK YKS BÜLTENİ</span><h3 style='color:#fff!important;margin:.45rem 0'>Günaydın {safe_name}.</h3><p style='color:#e3d7e7!important'>{html.escape(exam_countdown)} · Bugün planında <b style='color:#fff'>{len(unfinished_today)} görev</b> var. Bugün siteye {today_minutes} dakika çalışma kaydettin.</p><p style='color:#e3d7e7!important'>{checkin_line} Anka seviyesi: <b style='color:#ffc880'>{profile['title']}</b> · {profile['xp']} XP</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='soft-card' style='margin:.4rem 0 1rem;border-left:4px solid #08c9e5;background:linear-gradient(110deg,#101c2a,#172535)!important;color:#fff'><span class='section-kicker' style='color:#78e5f2!important'>☀️ GÜNLÜK YKS BÜLTENİ</span><h3 style='color:#fff!important;margin:.45rem 0'>Günaydın {safe_name}.</h3><p style='color:#cbd9e5!important'>{html.escape(exam_countdown)} · Bugün planında <b style='color:#fff'>{len(unfinished_today)} görev</b> var. Bugün siteye {today_minutes} dakika çalışma kaydettin.</p><p style='color:#cbd9e5!important'>{checkin_line} Gelişim seviyesi: <b style='color:#80e8f3'>{profile['title']}</b> · {profile['xp']} XP</p></div>", unsafe_allow_html=True)
         if st.button("Günlük bülteni kapat", key="dismiss_morning_bulletin"):
             write_user_json(user_id, "bulletin_seen_date", today.isoformat())
             st.rerun()
@@ -1471,7 +1481,7 @@ def render_dashboard(user_id: int, username: str) -> None:
     extra_a.metric("🎓 Sıradaki sınav", exam_countdown, help="Sınav tarihini Sınav Planlayıcı bölümünden ayarla")
     extra_b.metric("⏱️ YPT · bugün", ypt_today_label, help="İçe aktarılan YPT kayıtları; site oturumlarından ayrı gösterilir")
     extra_c.metric("📚 YPT · 7 gün", f"{sum(int(item.get('minutes', 0)) for item in ypt_logs if (today - timedelta(days=6)).isoformat() <= item.get('date', '') <= today.isoformat()) // 60} sa", help="Son yedi günde içe aktarılan YPT süresi")
-    extra_d.metric("🔥 AnkaXP", f"{profile['xp']} XP", help=f"Seviye: {profile['title']}")
+    extra_d.metric("⚡ JARVIS XP", f"{profile['xp']} XP", help=f"Seviye: {profile['title']}")
     streak_col, badge_col = st.columns([1, 3])
     streak_col.metric("🔥 Çalışma serisi", f"{study_streak} gün")
     badge_col.markdown(f"<div class='soft-card' style='padding:.85rem 1rem'><span class='section-kicker'>GELİŞİM ROZETİ</span><p style='margin-top:.3rem'>🏅 {streak_badge} · Her gün kısa bir oturum bile serini sürdürür.</p></div>", unsafe_allow_html=True)
@@ -1546,7 +1556,7 @@ def render_dashboard(user_id: int, username: str) -> None:
             for task_index, item in enumerate(today_tasks[:5]):
                 label = " · ".join(part for part in [item.get("subject", "Ders"), item.get("topic", ""), item.get("target", "")] if part)
                 state = "✓" if item.get("done") else "○"
-                st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#1f9b75' if item.get('done') else '#c94355'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='soft-card' style='margin-bottom:9px;padding:12px 15px'><b style='color:{'#08a9c2' if item.get('done') else '#117fa2'}'>{state}</b> &nbsp; {html.escape(label)}</div>", unsafe_allow_html=True)
                 if not item.get("done"):
                     task_actions = st.columns(2)
                     if task_actions[0].button("✓ Tamamlandı", key=f"dash_done_{item.get('id', task_index)}", use_container_width=True):
@@ -1663,88 +1673,68 @@ def render_focus_timer(user_id: int) -> None:
         st.rerun()
 
 
-def phoenix_mark_svg(size: int = 36) -> str:
-    """Small original line-art phoenix mark used throughout the interface."""
-    return (f'<svg width="{size}" height="{size}" viewBox="0 0 64 64" role="img" aria-label="Anka kuşu" '
-            'xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="3.4" '
-            'stroke-linecap="round" stroke-linejoin="round"><path d="M32 54c-3-10-2-19 1-28 1 8 5 12 10 15-1-11 4-18 11-24-1 13 3 21 7 26-5-1-9-2-13-5 1 7-1 13-5 18"/>'
-            '<path d="M30 54c3-10 2-19-1-28-1 8-5 12-10 15 1-11-4-18-11-24 1 13-3 21-7 26 5-1 9-2 13-5-1 7 1 13 5 18"/>'
-            '<path d="M32 28c-4-6-4-12 0-19 4 7 4 13 0 19Zm-8 30c3-3 5-6 8-10 3 4 5 7 8 10M26 59h12"/></svg>')
+def studio_mark_html(size: int = 36) -> str:
+    """Compact JARVIS monogram used by the sign-in and navigation chrome."""
+    return f'<span class="studio-mark" style="--mark-size:{size}px" aria-hidden="true">J</span>'
 
 
-def phoenix_watermark_svg() -> str:
-    """Large transparent phoenix line art for the ambient page background."""
-    return '''<div class="phoenix-backdrop" aria-hidden="true"><svg viewBox="0 0 900 900" xmlns="http://www.w3.org/2000/svg">
-    <defs><linearGradient id="wmWing" x1=".08" y1=".96" x2=".92" y2=".05"><stop stop-color="#ed4655"/><stop offset=".48" stop-color="#b54ed5"/><stop offset="1" stop-color="#7863ff"/></linearGradient><radialGradient id="wmCore"><stop stop-color="#f15b72" stop-opacity=".55"/><stop offset="1" stop-color="#8f41cb" stop-opacity="0"/></radialGradient></defs>
-    <circle cx="472" cy="424" r="340" fill="url(#wmCore)"/>
-    <g fill="none" stroke="url(#wmWing)" stroke-linecap="round" stroke-linejoin="round">
-    <path stroke-width="12" d="M448 552C351 493 263 404 198 286c79 34 144 74 197 124C348 301 361 204 431 94c12 135 46 239 102 312 12-122 73-225 179-305-45 134-44 244 5 330-73-33-130-75-174-127 19 113-3 207-68 289-9-88-33-160-82-213-1 67-10 124-33 172Z"/>
-    <path stroke-width="8" d="M429 476c-88-92-180-151-291-177 57 67 99 133 125 202-97-44-186-57-281-42 92 45 164 103 218 176-88-12-164-3-238 30 111 9 205 38 288 94-64 18-120 48-172 92 111-30 210-31 304-4m40-371c88-92 180-151 291-177-57 67-99 133-125 202 97-44 186-57 281-42-92 45-164 103-218 176 88-12 164-3 238 30-111 9-205 38-288 94 64 18 120 48 172 92-111-30-210-31-304-4"/>
-    <path stroke-width="10" d="M420 595c-29 69-63 125-107 179m194-179c29 69 63 125 107 179M455 350c-33-55-37-112-11-177 47 59 63 119 40 181"/>
-    </g><g fill="#ffd0a4"><circle cx="455" cy="386" r="8"/><path d="m465 384 31 8-29 12Z"/></g>
-    <g fill="none" stroke="#f66b83" stroke-linecap="round"><path stroke-width="5" d="M227 168l-8-22m-28 54-18-15m534-18 8-22m28 54 18-15"/><path stroke-width="3" d="m288 104-6-15m326 15 6-15"/></g>
-    </svg></div>'''
+def ambient_hud_markup() -> str:
+    """Subtle CSS-only radar rings for the page background; no image assets."""
+    return '<div class="ambient-hud" aria-hidden="true"><i></i><i></i><i></i><b></b></div>'
 
 
 def render_login() -> None:
     theme_picker_columns = st.columns([1, 1, 1])
     theme_mode = theme_picker_columns[1].selectbox("Görünüm", ["Açık", "Koyu"], index=1,
-                                                     format_func=lambda value: "☀️ Fildişi" if value == "Açık" else "🌑 Obsidyen",
+                                                     format_func=lambda value: "☀️ Daylight" if value == "Açık" else "🌘 Midnight",
                                                      key="login_theme_mode")
     theme_picker_columns[1].markdown(
         "<div style='height:7px;border-radius:99px;margin:-.45rem 0 .8rem;background:" +
-        ("linear-gradient(90deg,#fbf8fb,#fffafd,#c94355,#9b4db1)" if theme_mode == "Açık" else "linear-gradient(90deg,#10141b,#1a2029,#ff5148,#ffb24c)") +
+        ("linear-gradient(90deg,#f7fbff,#ffffff,#147ca1,#16b8cf)" if theme_mode == "Açık" else "linear-gradient(90deg,#080d15,#111b2a,#08c9e5,#ef536f)") +
         "'></div>", unsafe_allow_html=True)
-    background_path = Path(__file__).resolve().parent / "assets" / "login_mountains.png"
-    background_rule = ""
-    mountain_rules = ""
-    if background_path.exists():
-        import base64
-        encoded_image = base64.b64encode(background_path.read_bytes()).decode("ascii")
-        background_rule = f'background-image:linear-gradient(90deg,#0b1724a8,#10202b78),url("data:image/png;base64,{encoded_image}");'
-    else:
-        mountain_rules = '''
-        [data-testid="stAppViewContainer"]:before { content:"";position:fixed;right:8vw;top:12vh;width:min(54vw,620px);height:min(54vw,620px);pointer-events:none;border-radius:50%;opacity:.57;background:radial-gradient(circle,#fff7d8 0 3%,#ffc859 4% 6%,#ef5038 7% 10%,#371d1d 11% 13%,transparent 14% 23%,#ff6a3b55 24% 25%,transparent 26%);filter:drop-shadow(0 0 50px #f04b2a88); }
-        [data-testid="stAppViewContainer"]:after { content:"";position:fixed;inset:0;pointer-events:none;opacity:.32;background:repeating-linear-gradient(128deg,transparent 0 9%,#ffffff08 9.1% 9.25%,transparent 9.35% 18%),linear-gradient(145deg,transparent 35%,#c43e3024 35.2% 35.5%,transparent 35.7% 60%,#ffc75b16 60.2% 60.4%,transparent 60.6%); }
-        '''
+    ambient_login_rules = '''
+    [data-testid="stAppViewContainer"]:before { content:"";position:fixed;right:7vw;top:12vh;width:min(54vw,620px);aspect-ratio:1;pointer-events:none;border-radius:50%;opacity:.7;background:radial-gradient(circle,transparent 0 18%,#08c9e522 18.2% 18.5%,transparent 18.7% 34%,#08c9e522 34.2% 34.5%,transparent 34.7% 50%,#ef536f33 50.2% 50.5%,transparent 50.7%);filter:drop-shadow(0 0 50px #08c9e533);animation:login-radar 22s linear infinite; }
+    [data-testid="stAppViewContainer"]:after { content:"";position:fixed;inset:0;pointer-events:none;opacity:.23;background-image:linear-gradient(#72a2c00c 1px,transparent 1px),linear-gradient(90deg,#72a2c00c 1px,transparent 1px),linear-gradient(145deg,transparent 36%,#08c9e51a 36.2% 36.35%,transparent 36.55% 68%,#ef536f14 68.2% 68.35%,transparent 68.55%);background-size:48px 48px,48px 48px,100% 100%;mask-image:linear-gradient(90deg,transparent,black 70%); }
+    @keyframes login-radar { to { transform:rotate(360deg); } }
+    '''
     auth_theme_css = ""
     if theme_mode == "Açık":
         auth_theme_css = '''
-        [data-testid="stVerticalBlockBorderWrapper"] { background:#fffaf1df!important;border-color:#ffffffb0!important; }
-        .auth-title { color:#241f20!important;text-shadow:none!important; }
-        .auth-copy,[data-testid="stForm"] label,[data-testid="stForm"] p { color:#575258!important; }
-        [data-testid="stForm"] input { background:#fffefa!important;border-color:#b7a99b!important;color:#27252a!important; }
-        [data-testid="stForm"] input::placeholder { color:#77747a!important; }
-        [data-testid="stForm"] button { background:linear-gradient(100deg,#b93d31,#d37035)!important;color:white!important; }
-        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#eee6dd!important; }
-        [data-testid="stTabs"] [data-baseweb="tab"] { color:#5c5351!important; }
-        [data-testid="stTabs"] [aria-selected="true"] { background:white!important;color:#a53c31!important; }
-        .auth-feature-strip span { background:#ffffffb8!important;border-color:#d8c9b9!important;color:#544944!important; }
+        [data-testid="stVerticalBlockBorderWrapper"] { background:#f7fbffe8!important;border-color:#ffffffb0!important; }
+        .auth-title { color:#121c2a!important;text-shadow:none!important; }
+        .auth-copy,[data-testid="stForm"] label,[data-testid="stForm"] p { color:#4f6074!important; }
+        [data-testid="stForm"] input { background:#fff!important;border-color:#c6d4df!important;color:#172536!important; }
+        [data-testid="stForm"] input::placeholder { color:#75879a!important; }
+        [data-testid="stForm"] button { background:linear-gradient(100deg,#087f9c,#10b8cf)!important;color:white!important; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#e8f0f5!important; }
+        [data-testid="stTabs"] [data-baseweb="tab"] { color:#526476!important; }
+        [data-testid="stTabs"] [aria-selected="true"] { background:white!important;color:#087f9c!important; }
+        .auth-feature-strip span { background:#ffffffb8!important;border-color:#cbdbe5!important;color:#43576b!important; }
         '''
     st.markdown(f'''<style>
-    html,body,[data-testid="stAppViewContainer"] {{ background:#151417 !important; }}
-    [data-testid="stAppViewContainer"] {{ background-image:radial-gradient(ellipse at 80% 30%,#a332292e,transparent 42%),linear-gradient(135deg,#13151b,#272022 58%,#16171c);{background_rule} background-position:center;background-size:cover;background-attachment:fixed; }}
-    {mountain_rules}
+    html,body,[data-testid="stAppViewContainer"] {{ background:#080d15 !important; }}
+    [data-testid="stAppViewContainer"] {{ background-image:radial-gradient(ellipse at 82% 28%,#08c9e526,transparent 39%),radial-gradient(ellipse at 18% 88%,#ef536f1c,transparent 36%),linear-gradient(135deg,#080d15,#111a28 58%,#0a101a);background-position:center;background-size:cover;background-attachment:fixed; }}
+    {ambient_login_rules}
     [data-testid="stMainBlockContainer"] {{ position:relative;z-index:2;max-width:520px!important;padding-top:7vh!important;padding-bottom:8vh!important; }}
     [data-testid="stSidebar"] {{ display:none; }}
-    [data-testid="stVerticalBlockBorderWrapper"] {{ background:#14232fd9;border:1px solid #ffffff3b;border-radius:24px;padding:1.65rem 1.7rem 1.2rem;backdrop-filter:blur(20px);box-shadow:0 30px 90px #030a10a8; }}
+    [data-testid="stVerticalBlockBorderWrapper"] {{ background:rgba(14,23,36,.82);border:1px solid #6de5f233;border-radius:24px;padding:1.65rem 1.7rem 1.2rem;backdrop-filter:blur(20px);box-shadow:0 30px 90px #030a10a8,0 0 45px #08c9e511; }}
     [data-testid="stForm"] {{ background:transparent;border:0;padding:0; }}
     [data-testid="stForm"] label,[data-testid="stForm"] p {{ color:#dbe5e8!important; }}
-    [data-testid="stForm"] input {{ background:#10202bbd!important;border:1px solid #ffffff42!important;border-radius:999px!important;color:#fff!important;min-height:46px;padding-left:1rem; }}
-    [data-testid="stForm"] input::placeholder {{ color:#aebdc5!important; }}
-    [data-testid="stForm"] button {{ border-radius:999px!important;background:#f0f5f3!important;color:#182d30!important;border:0!important;font-weight:750!important;min-height:46px; }}
+    [data-testid="stForm"] input {{ background:#0d1724!important;border:1px solid #9db6c333!important;border-radius:999px!important;color:#fff!important;min-height:46px;padding-left:1rem; }}
+    [data-testid="stForm"] input::placeholder {{ color:#9cabb8!important; }}
+    [data-testid="stForm"] button {{ border-radius:999px!important;background:linear-gradient(100deg,#0a829f,#0bc1d6)!important;color:#06141c!important;border:0!important;font-weight:750!important;min-height:46px; }}
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0d!important;border:1px solid #ffffff1c; }}
     [data-testid="stTabs"] [data-baseweb="tab"] {{ color:#dbe4e8!important; }}
     [data-testid="stTabs"] [aria-selected="true"] {{ color:#142a30!important; }}
     .auth-brand {{ display:flex;align-items:center;justify-content:center;gap:.7rem;color:#fff8ee;font-size:.82rem;font-weight:850;letter-spacing:.17em;margin:.25rem 0 1rem;text-shadow:0 2px 15px #0008; }}
-    .auth-brand span {{ display:grid;place-items:center;width:42px;height:42px;border-radius:15px;background:linear-gradient(145deg,#ffe39a,#ff9d50 48%,#dd4338);color:#381d1c;font-size:1.15rem;letter-spacing:0;box-shadow:0 0 28px #f1754666,inset 0 1px 0 #fff9; }}
+    .auth-brand .studio-mark {{ width:42px;height:42px;border-radius:15px;background:linear-gradient(145deg,#b5faff,#08c9e5 58%,#ef536f);color:#07131e;font-size:1.15rem;letter-spacing:0;box-shadow:0 0 28px #08c9e555,inset 0 1px 0 #fff9; }}
     .auth-title {{ color:#fffaf5;font-size:clamp(1.7rem,4vw,2.15rem);font-weight:820;letter-spacing:-.045em;text-align:center;margin:.25rem 0 .45rem;text-shadow:0 3px 28px #ff684233; }}
     .auth-copy {{ color:#d4d1d0;text-align:center;font-size:.93rem;line-height:1.55;margin:0 0 .9rem; }}
     .auth-feature-strip {{ display:flex;flex-wrap:wrap;justify-content:center;gap:.42rem;margin:0 0 1.2rem; }}
-    .auth-feature-strip span {{ padding:.37rem .58rem;border:1px solid #ffffff20;border-radius:999px;background:#ffffff09;color:#e9d8c9;font-size:.68rem;font-weight:650;letter-spacing:.015em; }}
+    .auth-feature-strip span {{ padding:.37rem .58rem;border:1px solid #ffffff20;border-radius:999px;background:#ffffff09;color:#c7d6e2;font-size:.68rem;font-weight:650;letter-spacing:.015em; }}
     [data-testid="stForm"] [data-baseweb="input"] {{ border-radius:14px!important;background:#ffffff08!important;box-shadow:0 5px 18px #0002; }}
     [data-testid="stForm"] input {{ border-radius:14px!important; }}
-    [data-testid="stForm"] input:focus {{ border-color:#ffb45d!important;box-shadow:0 0 0 2px #ffb45d33!important; }}
+    [data-testid="stForm"] input:focus {{ border-color:#08c9e5!important;box-shadow:0 0 0 2px #08c9e533!important; }}
     [data-testid="stForm"] button {{ background:linear-gradient(100deg,#f2c56d,#fa8b4c 52%,#e44d42)!important;color:#261719!important;box-shadow:0 8px 24px #e1513d33,inset 0 1px 0 #ffffff90!important; }}
     [data-testid="stForm"] button:disabled {{ opacity:1!important;color:#512b22!important;filter:saturate(.78); }}
     [data-testid="stTabs"] [data-baseweb="tab-list"] {{ background:#ffffff0c!important;border:1px solid #ffffff1d;padding:5px!important; }}
@@ -1757,28 +1747,27 @@ def render_login() -> None:
     {auth_theme_css}
     </style>''', unsafe_allow_html=True)
     st.markdown("""<style>
-    html,body,[data-testid="stAppViewContainer"] { background:#110e19!important; }
-    [data-testid="stAppViewContainer"] { background-image:radial-gradient(ellipse at 78% 20%,#8f42ba35,transparent 35%),radial-gradient(ellipse at 18% 84%,#e3444027,transparent 36%),linear-gradient(145deg,#100d17,#201324 52%,#17101b)!important; }
-    [data-testid="stVerticalBlockBorderWrapper"] { background:linear-gradient(150deg,#251829e8,#17141eea)!important;border-color:#b46bba55!important;box-shadow:0 32px 100px #08050dba,0 0 55px #b2488b15!important; }
-    .auth-brand { gap:.7rem;color:#fff7ff!important;letter-spacing:.13em!important; }
-    .phoenix-brand-icon { display:grid;place-items:center;width:48px;height:48px;border-radius:17px;color:#ffe3bf;background:linear-gradient(145deg,#a148cf,#e54a50 72%,#f59e59);box-shadow:0 0 32px #e34c6852,inset 0 1px 0 #fff8; }
-    .auth-title { text-shadow:0 0 30px #bf5bcb35!important; }
-    [data-testid="stForm"] button { background:linear-gradient(100deg,#a04ac9,#d84464 58%,#f0784d)!important;color:#fff!important; }
-    [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) { color:#fff!important;background:linear-gradient(100deg,#9748bd,#df4963 62%,#eb764b)!important; }
-    [data-testid="stForm"] input:focus { border-color:#ca76dc!important;box-shadow:0 0 0 2px #bb54d43b!important; }
+    html,body,[data-testid="stAppViewContainer"] { background:#080d15!important; }
+    [data-testid="stAppViewContainer"] { background-image:radial-gradient(ellipse at 78% 20%,#08c9e52c,transparent 35%),radial-gradient(ellipse at 18% 84%,#ef536f20,transparent 36%),linear-gradient(145deg,#080d15,#111c2b 52%,#0a1019)!important; }
+    [data-testid="stVerticalBlockBorderWrapper"] { background:linear-gradient(150deg,#111e2ee8,#0d1522ea)!important;border-color:#58dced44!important;box-shadow:0 32px 100px #030a10ba,0 0 55px #08c9e51b!important; }
+    .auth-brand { gap:.7rem;color:#f1f8fc!important;letter-spacing:.13em!important; }
+    .auth-title { text-shadow:0 0 30px #08c9e527!important; }
+    [data-testid="stForm"] button { background:linear-gradient(100deg,#087f9c,#08c9e5 60%,#ef536f)!important;color:#06131a!important; }
+    [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) { color:#06131a!important;background:linear-gradient(100deg,#82f0fa,#08c9e5 62%,#e96983)!important; }
+    [data-testid="stForm"] input:focus { border-color:#08c9e5!important;box-shadow:0 0 0 2px #08c9e533!important; }
     </style>""", unsafe_allow_html=True)
     if theme_mode == "Açık":
         st.markdown("""<style>
-        [data-testid="stAppViewContainer"] { background-image:radial-gradient(ellipse at 82% 22%,#a34cb22b,transparent 35%),radial-gradient(ellipse at 14% 82%,#e7434e22,transparent 38%),linear-gradient(145deg,#f8f4f8,#efe7f1)!important; }
-        [data-testid="stVerticalBlockBorderWrapper"] { background:#fffafdE8!important;border-color:#d6b9dc!important;box-shadow:0 24px 70px #53244b28!important; }
-        .auth-title { color:#2b1d33!important;text-shadow:none!important; }.auth-copy { color:#716579!important; }
-        [data-testid="stForm"] label,[data-testid="stForm"] p { color:#4b3c51!important; }
-        [data-testid="stForm"] input { background:#fffafd!important;color:#2d2033!important;border-color:#e3d3e7!important; }
-        .auth-feature-strip span { background:#fbf5fc!important;color:#644a6a!important;border-color:#e8d9eb!important; }
-        [data-testid="stRadio"] [role="radiogroup"] label { color:#624d68!important; }
-        [data-testid="stTabs"] [data-baseweb="tab"] { color:#624d68!important; }
+        [data-testid="stAppViewContainer"] { background-image:radial-gradient(ellipse at 82% 22%,#08c9e51c,transparent 35%),radial-gradient(ellipse at 14% 82%,#ef536f12,transparent 38%),linear-gradient(145deg,#f5faff,#eaf2f8)!important; }
+        [data-testid="stVerticalBlockBorderWrapper"] { background:#f7fbffee!important;border-color:#c9dce7!important;box-shadow:0 24px 70px #24425724!important; }
+        .auth-title { color:#172536!important;text-shadow:none!important; }.auth-copy { color:#53677b!important; }
+        [data-testid="stForm"] label,[data-testid="stForm"] p { color:#43586c!important; }
+        [data-testid="stForm"] input { background:#fff!important;color:#172536!important;border-color:#c7d6e1!important; }
+        .auth-feature-strip span { background:#f7fbff!important;color:#476176!important;border-color:#cddde6!important; }
+        [data-testid="stRadio"] [role="radiogroup"] label { color:#52687a!important; }
+        [data-testid="stTabs"] [data-baseweb="tab"] { color:#52687a!important; }
         </style>""", unsafe_allow_html=True)
-    st.markdown(f'<div class="auth-brand"><span class="phoenix-brand-icon">{phoenix_mark_svg(30)}</span> YKS ÇALIŞMA STÜDYOSU</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="auth-brand">{studio_mark_html(30)} JARVIS · YKS ÇALIŞMA STÜDYOSU</div>', unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown('<div class="auth-title">Hedefine hoş geldin</div><div class="auth-copy">YKS yolculuğunu planla, ilerlemeni takip et ve her gün küçük bir adım daha at.</div><div class="auth-feature-strip"><span>✦ Kişisel çalışma planı</span><span>◷ Günlük odak takibi</span><span>⌁ Güvenli hafıza</span></div>', unsafe_allow_html=True)
         auth_mode = st.radio("Hesap işlemi", ["Giriş yap", "Hesap oluştur"], horizontal=True,
@@ -1833,18 +1822,19 @@ def main():
 
     user_id = st.session_state.user_id
     api_ready = configure_gemini()
-    current_xp = xp_profile(user_id)["xp"]
-    unlocked_themes = ["Açık", "Koyu"]
-    if current_xp >= 300:
-        unlocked_themes.append("🔥 Alev Kanatlı")
-    if current_xp >= 700:
-        unlocked_themes.append("🌌 Kozmik Anka")
+    theme_options = ["Açık", "Koyu", "⚡ Stark Core", "🕸️ Parker Pulse"]
     if st.session_state.get("theme_owner_id") != user_id:
         saved_theme = read_user_json(user_id, "theme_preference", "Koyu")
-        st.session_state["theme_mode"] = saved_theme if saved_theme in unlocked_themes else "Koyu"
+        legacy_themes = {"🔥 Alev Kanatlı": "⚡ Stark Core", "🌌 Kozmik Anka": "🕸️ Parker Pulse"}
+        saved_theme = legacy_themes.get(saved_theme, saved_theme)
+        st.session_state["theme_mode"] = saved_theme if saved_theme in theme_options else "Koyu"
         st.session_state["theme_owner_id"] = user_id
+    if st.session_state.get("theme_mode") not in theme_options:
+        legacy_themes = {"🔥 Alev Kanatlı": "⚡ Stark Core", "🌌 Kozmik Anka": "🕸️ Parker Pulse"}
+        migrated_theme = legacy_themes.get(st.session_state.get("theme_mode"), "Koyu")
+        st.session_state["theme_mode"] = migrated_theme if migrated_theme in theme_options else "Koyu"
     with st.sidebar:
-        st.markdown(f'<div class="side-brand"><span class="side-mark">{phoenix_mark_svg(25)}</span><span>ANKA <small style="display:block;color:#beaac9;font-weight:550;letter-spacing:.15em">YKS ÇALIŞMA STÜDYOSU</small></span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="side-brand">{studio_mark_html(30)}<span>JARVIS <small style="display:block;color:#9bb0c4;font-weight:550;letter-spacing:.15em">YKS ÇALIŞMA STÜDYOSU</small></span></div>', unsafe_allow_html=True)
         safe_sidebar_name = html.escape(st.session_state.get("username", "Kullanıcı"), quote=True)
         st.markdown(f'<div class="sidebar-profile"><span class="sidebar-avatar">{safe_sidebar_name[:1].upper()}</span><span><b>{safe_sidebar_name}</b><small>Çalışma alanın aktif</small></span><i></i></div>', unsafe_allow_html=True)
         st.button("Çıkış yap", use_container_width=True, on_click=logout_user)
@@ -1852,39 +1842,39 @@ def main():
                            file_name=f"yks_kocu_yedek_{st.session_state.get('username', 'hesap')}.json",
                            mime="application/json", use_container_width=True)
         with st.expander("Yedekten geri yükle"):
-            backup_upload = st.file_uploader("ANKA yedeği veya çevrimdışı değişiklik JSON'u", type=["json"], key="restore_backup_file")
+            backup_upload = st.file_uploader("Hesap yedeği veya çevrimdışı değişiklik JSON'u", type=["json"], key="restore_backup_file")
             if backup_upload and st.button("Yedeği bu hesaba uygula", key="restore_backup_button", use_container_width=True):
                 restored, restore_message = restore_account_backup(user_id, backup_upload)
                 (st.success if restored else st.error)(restore_message)
                 if restored:
                     st.rerun()
-        theme_labels = {"Açık": "☀️ Fildişi", "Koyu": "🌑 Obsidyen",
-                        "🔥 Alev Kanatlı": "🔥 Anka Alevi", "🌌 Kozmik Anka": "🌌 Kozmik Anka"}
-        theme_mode = st.selectbox("Görünüm stüdyosu", unlocked_themes, key="theme_mode",
+        theme_labels = {"Açık": "☀️ Daylight", "Koyu": "🌘 Midnight",
+                        "⚡ Stark Core": "⚡ Stark Core · cyan / graphite", "🕸️ Parker Pulse": "🕸️ Parker Pulse · red / blue"}
+        theme_mode = st.selectbox("Görünüm stüdyosu", theme_options, key="theme_mode",
                                   format_func=lambda value: theme_labels.get(value, value),
                                   on_change=persist_theme_preference, args=(user_id,))
-        theme_descriptions = {"Açık": "Açık zemin · yumuşak mor ve kızıl vurgu",
-                              "Koyu": "Koyu zemin · sıcak anka vurguları",
-                              "🔥 Alev Kanatlı": "Kızıl-turuncu · güçlü kontrast",
-                              "🌌 Kozmik Anka": "Mor-mavi · gece görünümü"}
-        palette = {"Açık": "linear-gradient(90deg,#fbf8fb,#fffafd,#c94355,#9b4db1)",
-                   "Koyu": "linear-gradient(90deg,#10141b,#1a2029,#ff5148,#ffb24c)",
-                   "🔥 Alev Kanatlı": "linear-gradient(90deg,#211315,#58211f,#f06b42,#ffd06e)",
-                   "🌌 Kozmik Anka": "linear-gradient(90deg,#110e1d,#271744,#a85cf2,#62d7ee)"}
+        theme_descriptions = {"Açık": "Açık yüzeyler · mavi ve cyan etkileşimler",
+                              "Koyu": "Grafit arayüz · dengeli cyan vurgu",
+                              "⚡ Stark Core": "Derin grafit · reaktör cyanı ve sıcak kırmızı",
+                              "🕸️ Parker Pulse": "Gece mavisi · enerjik kırmızı ve elektrik mavisi"}
+        palette = {"Açık": "linear-gradient(90deg,#f7fbff,#ffffff,#147ca1,#16b8cf)",
+                   "Koyu": "linear-gradient(90deg,#080d15,#111b2a,#08c9e5,#ef536f)",
+                   "⚡ Stark Core": "linear-gradient(90deg,#080d15,#111b2a,#08c9e5,#ef536f)",
+                   "🕸️ Parker Pulse": "linear-gradient(90deg,#101018,#15243a,#ef536f,#2586db)"}
         st.caption(theme_descriptions.get(theme_mode, ""))
         st.markdown(f"<div style='height:8px;border-radius:99px;margin:-.35rem 0 .8rem;background:{palette.get(theme_mode, palette['Koyu'])}'></div>", unsafe_allow_html=True)
         st.divider()
 
     if theme_mode != "Açık":
         theme_css = """
-        :root { --ink:#f1f3f6; --muted:#aeb7c5; --brand:#ff5148; --mint:#ffb24c; --gold:#ffd36e; --line:#333a46; --paper:#11151c; }
-        html,body,[data-testid="stAppViewContainer"] { background-color:#11151c!important; background-image:radial-gradient(ellipse at 78% 8%,#ff32221c,transparent 34%),radial-gradient(ellipse at 88% 14%,#ffc34a12,transparent 24%),linear-gradient(145deg,#10141b,#17191f 56%,#12151c)!important; background-attachment:fixed!important; }
+        :root { --ink:#eff6fc; --muted:#9aaec0; --brand:#08c9e5; --mint:#6be5f1; --gold:#ef536f; --line:rgba(159,194,215,.15); --paper:#080d15; }
+        html,body,[data-testid="stAppViewContainer"] { background-color:#080d15!important; background-image:radial-gradient(ellipse at 78% 8%,#08c9e517,transparent 34%),radial-gradient(ellipse at 88% 14%,#ef536f12,transparent 24%),linear-gradient(145deg,#080d15,#111a28 56%,#090f18)!important; background-attachment:fixed!important; }
         [data-testid="stAppViewContainer"] .main { color:#f1f3f6!important; }
         h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
-        [data-testid="stSidebar"] { background:linear-gradient(165deg,#20191b,#12161e 62%,#19191a)!important; border-right:1px solid #59312d!important; }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#101b29,#0b111b 62%,#0d131d)!important; border-right:1px solid #08c9e527!important; }
         [data-testid="stSidebar"] * { color:#eceff4; }
-        .side-nav-label { color:#ffae79!important; }
-        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] { background:#1a2029!important; border-color:#333b48!important; color:#f1f3f6!important; }
+        .side-nav-label { color:#7edceb!important; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] { background:rgba(16,27,41,.78)!important;backdrop-filter:blur(16px);border-color:rgba(159,194,215,.15)!important;color:#eff6fc!important; }
         [data-testid="stMetricValue"],.soft-card h3 { color:#f4f5f7!important; }
         .soft-card p,.empty-state { color:#b9c2cf!important; }
         .empty-state { background:#1a2029!important;border-color:#454d59!important; }
@@ -1899,128 +1889,132 @@ def main():
         .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#171d26!important;color:#f1f3f6!important;border-color:#414957!important; }
         [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#202630!important; }
         [data-testid="stTabs"] [data-baseweb="tab"] { color:#c0c8d3!important; }
-        [data-testid="stTabs"] [aria-selected="true"] { background:#303844!important;color:#ffb24c!important; }
+        [data-testid="stTabs"] [aria-selected="true"] { background:#1a3448!important;color:#73d9ec!important; }
         [data-testid="stChatMessage"] { background:#1b222c!important;border-color:#343d4a!important; }
         [data-testid="stChatInput"] textarea { background:#171d26!important;color:#f1f3f6!important; }
         .stDownloadButton button { background:#302622!important;color:#ffd08b!important;border-color:#654638!important; }
-        .hero-card { background:linear-gradient(115deg,#231719 0%,#52231f 55%,#9e382b 100%)!important;box-shadow:0 18px 45px #08090c88!important; }
-        .hero-eyebrow { color:#ffd17d!important; }
-        [data-testid="stSidebar"] [data-testid="stMetric"] { background:#251f22!important; }
+        .hero-card { background:radial-gradient(ellipse at 82% 48%,#08c9e523,transparent 34%),linear-gradient(115deg,#0c1420 0%,#15263a 58%,#17232d 100%)!important;box-shadow:0 18px 45px #03080e88!important; }
+        .hero-eyebrow { color:#83e8f2!important; }
+        [data-testid="stSidebar"] [data-testid="stMetric"] { background:#101c2a!important; }
         """
     else:
         theme_css = """
-        :root { --ink:#202b3b; --muted:#687486; --brand:#b63e32; --mint:#397c70; --gold:#aa671e; --line:#e5ddd7; --paper:#f7f5f2; }
-        html,body,[data-testid="stAppViewContainer"] { background-color:#f7f5f2!important; background-image:radial-gradient(ellipse at 82% 7%,#e9513512,transparent 33%),radial-gradient(ellipse at 91% 12%,#ffbf5912,transparent 23%),linear-gradient(145deg,#f8f6f3,#f2f0ee)!important; background-attachment:fixed!important; }
+        :root { --ink:#172536; --muted:#637588; --brand:#117fa2; --mint:#08a9c2; --gold:#e44f6d; --line:#dce7ef; --paper:#f3f7fa; }
+        html,body,[data-testid="stAppViewContainer"] { background-color:#f3f7fa!important; background-image:radial-gradient(ellipse at 82% 7%,#08a5c211,transparent 33%),radial-gradient(ellipse at 91% 12%,#e44f6d0c,transparent 23%),linear-gradient(145deg,#f7fbff,#edf3f7)!important; background-attachment:fixed!important; }
         [data-testid="stSidebar"] { background:linear-gradient(165deg,#292326,#171b22 70%,#202023)!important;border-right:1px solid #513331!important; }
-        .side-mark { background:linear-gradient(135deg,#ffbd5b,#f26748)!important;color:#351d1b!important; }
-        .side-nav-label { color:#ffbd90!important; }
-        .stButton button { background:#a93b31!important;border-color:#a93b31!important; }
-        .stButton button:hover { background:#872d27!important;border-color:#872d27!important; }
-        .hero-card { background:linear-gradient(115deg,#252022 0%,#60302a 56%,#a44231 100%)!important; }
-        .hero-eyebrow { color:#ffd17d!important; }
-        .week-empty { background:linear-gradient(135deg,#fff,#f4f1ee)!important; }
+        .side-mark { background:linear-gradient(135deg,#a9f3fb,#08a9c2)!important;color:#08202b!important; }
+        .side-nav-label { color:#117fa2!important; }
+        .stButton button { background:#117fa2!important;border-color:#117fa2!important; }
+        .stButton button:hover { background:#086a88!important;border-color:#086a88!important; }
+        .hero-card { background:linear-gradient(115deg,#102339 0%,#1d4a63 56%,#167f9a 100%)!important; }
+        .hero-eyebrow { color:#d5f8fb!important; }
+        .week-empty { background:linear-gradient(135deg,#fff,#eef4f8)!important; }
         [data-testid="stForm"] { background:#fff!important;border:1px solid #e5ddd7!important;border-radius:18px!important;padding:18px!important;box-shadow:0 12px 30px #5430200c!important; }
         """
     st.markdown(f"<style>{theme_css}</style>", unsafe_allow_html=True)
     if theme_mode != "Açık":
-        phoenix_theme_css = """
-        :root { --ink:#f4f5fa;--muted:#aab3c2;--brand:#a85cf2;--mint:#db8df0;--gold:#ffc578;--line:rgba(255,255,255,.08);--paper:#08090d; }
-        html,body,[data-testid="stAppViewContainer"] { background:#08090d!important;background-image:radial-gradient(ellipse at 82% 0%,#753da01c,transparent 38%),radial-gradient(ellipse at 8% 36%,#dc394318,transparent 34%),linear-gradient(145deg,#08090d,#0d1117 52%,#090b11)!important;background-attachment:fixed!important; }
-        [data-testid="stAppViewContainer"] .main { color:#f4eefa!important; }
+        studio_theme_css = """
+        :root { --ink:#eff6fc;--muted:#a7b6c5;--brand:#08c9e5;--mint:#6be5f1;--gold:#ef536f;--line:rgba(159,194,215,.14);--paper:#080d15; }
+        html,body,[data-testid="stAppViewContainer"] { background:#080d15!important;background-image:radial-gradient(ellipse at 82% 0%,#08c9e515,transparent 38%),radial-gradient(ellipse at 8% 36%,#ef536f11,transparent 34%),linear-gradient(145deg,#080d15,#101a28 52%,#090f18)!important;background-attachment:fixed!important; }
+        [data-testid="stAppViewContainer"] .main { color:#eff6fc!important; }
         h1,h2,h3,h4,p,label,[data-testid="stCaptionContainer"] { color:var(--ink); }
-        [data-testid="stSidebar"] { background:linear-gradient(165deg,#211327,#17101d 60%,#100e17)!important;border-right:1px solid #6c355b!important; }
-        [data-testid="stSidebar"] * { color:#f1eaf4; }
-        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:rgba(18,24,38,.75)!important;backdrop-filter:blur(16px);border-color:rgba(255,255,255,.08)!important;color:#f4f5fa!important; }
-        [data-testid="stMetricValue"],.soft-card h3 { color:#fff7ff!important; }
-        .soft-card p,.empty-state { color:#bfb1c8!important; }
-        .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#43314d!important; }
-        .week-empty-copy strong { color:#fff5ff!important; }.week-empty-copy span { color:#b9a9c3!important; }
-        .week-bars { background:linear-gradient(180deg,#2a2031,#211927)!important; }
-        .calendar-day { background:linear-gradient(145deg,#211927,#1a1521)!important;border-color:#403049!important; }
-        .calendar-day small,.calendar-day span,.calendar-day .calendar-quiet { color:#baaac5!important; }
-        .calendar-day strong,.calendar-day ul { color:#f2eafa!important; }
-        [data-testid="stForm"] { background:linear-gradient(145deg,#211927,#19141f)!important;border:1px solid #43314d!important;border-radius:20px!important;padding:20px!important;box-shadow:0 16px 42px #08050c75!important; }
-        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#17121d!important;color:#f7effa!important;border-color:#493653!important; }
-        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#211927!important; }[data-testid="stTabs"] [data-baseweb="tab"] { color:#c9bad2!important; }
-        [data-testid="stTabs"] [aria-selected="true"] { background:#38223b!important;color:#ffa8bb!important; }
-        [data-testid="stChatMessage"] { background:#211927!important;border-color:#43314d!important; }[data-testid="stChatInput"] textarea { background:#17121d!important;color:#f7effa!important; }
-        .stDownloadButton button { background:#302039!important;color:#f3b7e5!important;border-color:#65466e!important; }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#101b29,#0b111b 60%,#0a1019)!important;border-right:1px solid #08c9e527!important; }
+        [data-testid="stSidebar"] * { color:#eaf3f9; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:rgba(16,27,41,.76)!important;backdrop-filter:blur(16px);border-color:rgba(159,194,215,.14)!important;color:#eff6fc!important; }
+        [data-testid="stMetricValue"],.soft-card h3 { color:#f4f8fc!important; }
+        .soft-card p,.empty-state { color:#b5c3d0!important; }
+        .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#122033,#0f1927)!important;border-color:#2c4154!important; }
+        .week-empty-copy strong { color:#f3f8fb!important; }.week-empty-copy span { color:#aebdca!important; }
+        .week-bars { background:linear-gradient(180deg,#1a2b3b,#142233)!important; }
+        .calendar-day { background:linear-gradient(145deg,#122033,#0f1927)!important;border-color:#2c4154!important; }
+        .calendar-day small,.calendar-day span,.calendar-day .calendar-quiet { color:#aabac8!important; }
+        .calendar-day strong,.calendar-day ul { color:#edf4f8!important; }
+        [data-testid="stForm"] { background:linear-gradient(145deg,#132235,#0f1927)!important;border:1px solid #2c4154!important;border-radius:20px!important;padding:20px!important;box-shadow:0 16px 42px #030a1075!important; }
+        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#0d1724!important;color:#f2f7fb!important;border-color:#344a5c!important; }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] { background:#122033!important; }[data-testid="stTabs"] [data-baseweb="tab"] { color:#bdcbd5!important; }
+        [data-testid="stTabs"] [aria-selected="true"] { background:#1b3448!important;color:#87e4ef!important; }
+        [data-testid="stChatMessage"] { background:#122033!important;border-color:#2c4154!important; }[data-testid="stChatInput"] textarea { background:#0d1724!important;color:#f2f7fb!important; }
+        .stDownloadButton button { background:#10283a!important;color:#9cebf2!important;border-color:#1d7181!important; }
         """
     else:
-        phoenix_theme_css = """
-        :root { --ink:#271a30;--muted:#716579;--brand:#c94355;--mint:#9b4db1;--gold:#9b5b2b;--line:#e8dce9;--paper:#f8f4f8; }
-        html,body,[data-testid="stAppViewContainer"] { background:#f8f4f8!important;background-image:radial-gradient(ellipse at 88% 2%,#a34cb215,transparent 34%),radial-gradient(ellipse at 3% 30%,#e7434e12,transparent 34%),linear-gradient(145deg,#fbf8fb,#f4eff6)!important;background-attachment:fixed!important; }
-        [data-testid="stSidebar"] { background:linear-gradient(165deg,#26172e,#19121e 68%,#15101a)!important;border-right:1px solid #593153!important; }
-        [data-testid="stSidebar"] * { color:#f3eaf7; }
-        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:#fffafd!important;border-color:#eaddeb!important;color:#2b1d33!important; }
-        [data-testid="stMetricValue"],.soft-card h3 { color:#291c31!important; }.soft-card p,.empty-state { color:#716579!important; }
-        .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#fffafd,#f7eff8)!important;border-color:#eaddeb!important; }
-        .calendar-day { background:linear-gradient(145deg,#fffafd,#f7eff8)!important;border-color:#eaddeb!important; }
-        [data-testid="stForm"] { background:#fffafd!important;border:1px solid #eaddeb!important;border-radius:20px!important;padding:20px!important;box-shadow:0 16px 42px #56335b0d!important; }
-        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#fffafd!important;color:#2d2033!important;border-color:#e3d3e7!important; }
+        studio_theme_css = """
+        :root { --ink:#172536;--muted:#607386;--brand:#117fa2;--mint:#08a9c2;--gold:#e44f6d;--line:#dce7ef;--paper:#f3f7fa; }
+        html,body,[data-testid="stAppViewContainer"] { background:#f3f7fa!important;background-image:radial-gradient(ellipse at 88% 2%,#08a5c211,transparent 34%),radial-gradient(ellipse at 3% 30%,#e44f6d0a,transparent 34%),linear-gradient(145deg,#f7fbff,#edf3f7)!important;background-attachment:fixed!important; }
+        [data-testid="stSidebar"] { background:linear-gradient(165deg,#172b3a,#12202e 68%,#101c29)!important;border-right:1px solid #c4d8e4!important; }
+        [data-testid="stSidebar"] * { color:#edf7fb; }
+        [data-testid="stMetric"],.soft-card,[data-testid="stExpander"],[data-testid="stVerticalBlockBorderWrapper"] { background:#f9fcff!important;border-color:#d9e6ee!important;color:#172536!important; }
+        [data-testid="stMetricValue"],.soft-card h3 { color:#172536!important; }.soft-card p,.empty-state { color:#607386!important; }
+        .empty-state,.week-empty,.study-heatmap { background:linear-gradient(145deg,#fff,#edf4f8)!important;border-color:#d9e6ee!important; }
+        .calendar-day { background:linear-gradient(145deg,#fff,#edf4f8)!important;border-color:#d9e6ee!important; }
+        [data-testid="stForm"] { background:#f9fcff!important;border:1px solid #d9e6ee!important;border-radius:20px!important;padding:20px!important;box-shadow:0 16px 42px #24425710!important; }
+        .stTextInput input,.stTextArea textarea,.stDateInput input,.stTimeInput input,.stNumberInput input,.stSelectbox [data-baseweb="select"]>div { background:#fff!important;color:#172536!important;border-color:#cddce5!important; }
         """
-    st.markdown(f"<style>{phoenix_theme_css}</style>", unsafe_allow_html=True)
-    if theme_mode == "🔥 Alev Kanatlı":
-        st.markdown("<style>:root{--brand:#f06b42!important;--mint:#ff9f5b!important;--gold:#ffd06e!important}.hero-card{background:radial-gradient(circle at 82% 48%,#f3a54746,transparent 31%),linear-gradient(112deg,#211315,#58211f 58%,#a43b2c)!important}.phoenix-backdrop{opacity:.13!important}</style>", unsafe_allow_html=True)
-    elif theme_mode == "🌌 Kozmik Anka":
-        st.markdown("<style>:root{--brand:#a85cf2!important;--mint:#62d7ee!important;--gold:#f6b95b!important}.hero-card{background:radial-gradient(circle at 82% 48%,#9d5fff55,transparent 34%),linear-gradient(112deg,#110e1d,#271744 57%,#49234f)!important}.phoenix-backdrop{opacity:.14!important}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{studio_theme_css}</style>", unsafe_allow_html=True)
+    if theme_mode == "⚡ Stark Core":
+        st.markdown("<style>:root{--brand:#08c9e5!important;--mint:#6be5f1!important;--gold:#ef536f!important}.hero-card{background:radial-gradient(circle at 82% 48%,#08c9e52b,transparent 31%),linear-gradient(112deg,#09111c,#12243a 58%,#163548)!important}</style>", unsafe_allow_html=True)
+    elif theme_mode == "🕸️ Parker Pulse":
+        st.markdown("<style>:root{--brand:#ef536f!important;--mint:#2586db!important;--gold:#73d9ec!important}.hero-card{background:radial-gradient(circle at 82% 48%,#ef536f24,transparent 34%),radial-gradient(circle at 68% 92%,#2586db23,transparent 38%),linear-gradient(112deg,#0c1019,#17253a 57%,#121c2e)!important}</style>", unsafe_allow_html=True)
     if theme_mode == "Açık":
         st.markdown("""<style>
         .feature-card,.bento-card { background:rgba(255,255,255,.78)!important;border-color:rgba(35,42,58,.11)!important;box-shadow:0 14px 38px #323b4b12,inset 0 1px 0 #ffffffb5!important; }
         .feature-card.is-active { background:linear-gradient(145deg,color-mix(in srgb,var(--feature-accent) 9%,#fff),rgba(255,255,255,.9))!important;box-shadow:0 0 30px color-mix(in srgb,var(--feature-accent) 20%,transparent),0 18px 48px #323b4b14!important; }
         .feature-card h3,.bento-value { color:#202838!important; }.feature-card p,.bento-note { color:#5c6678!important; }.bento-label,.feature-hint { color:#697386!important; }
         .st-key-home_feature_filter [data-testid="stRadio"] label { background:#ffffffbb!important;border-color:#27324720!important; }
-        .st-key-home_feature_filter [data-testid="stRadio"] label p { color:#4f5a70!important; }.st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) { background:#f0e8fa!important;border-color:#a85cf288!important; }
+        .st-key-home_feature_filter [data-testid="stRadio"] label p { color:#4f5a70!important; }.st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) { background:#e8f5f9!important;border-color:#117fa288!important; }
         </style>""", unsafe_allow_html=True)
     st.markdown("""<style>
     [data-testid="stAppViewContainer"] .main { position:relative; }
     [data-testid="stMainBlockContainer"] { position:relative; }
-    .phoenix-backdrop { position:fixed;inset:0;z-index:0;pointer-events:none;display:flex;justify-content:flex-end;align-items:center;overflow:hidden;opacity:.075;mix-blend-mode:screen; }
-    .phoenix-backdrop svg { width:min(74vw,900px);height:auto;transform:translate(13%,2%);filter:drop-shadow(0 0 30px #a844cd55); }
-    .app-masthead { display:flex;align-items:center;justify-content:space-between;margin:-.55rem 0 1.2rem;padding:.7rem .95rem;border:1px solid #ffffff13;border-radius:15px;background:linear-gradient(100deg,#24182dba,#291621a8);color:#f6eefa;box-shadow:0 8px 30px #13091819; }
+    .ambient-hud { position:fixed;right:-10vw;top:19vh;width:min(58vw,760px);aspect-ratio:1;z-index:0;pointer-events:none;opacity:.17; }
+    .ambient-hud i { position:absolute;border:1px solid #42d8e5;opacity:.52;border-radius:50%; }
+    .ambient-hud i:nth-child(1) { inset:10%; }.ambient-hud i:nth-child(2) { inset:27%; }.ambient-hud i:nth-child(3) { inset:44%;border-style:dashed;animation:reactor-spin 52s linear infinite; }
+    .ambient-hud b { position:absolute;inset:48%;border-radius:50%;background:#08c9e5;box-shadow:0 0 45px 18px #08c9e544; }
+    .studio-mark { display:grid;place-items:center;flex:0 0 var(--mark-size,36px);width:var(--mark-size,36px);height:var(--mark-size,36px);border-radius:13px;background:linear-gradient(145deg,#b5faff,#08c9e5 58%,#ef536f);color:#07131e;font-weight:900;font-size:1.05rem;box-shadow:0 0 26px #08c9e544,inset 0 1px 0 #fff9; }
+    .app-masthead { display:flex;align-items:center;justify-content:space-between;margin:-.55rem 0 1.2rem;padding:.7rem .95rem;border:1px solid #78dbe522;border-radius:15px;background:linear-gradient(100deg,#101d2dbd,#101722aa);color:#f0f7fb;box-shadow:0 8px 30px #07111c19;backdrop-filter:blur(16px); }
     .app-masthead-brand { display:flex;align-items:center;gap:.65rem;font-size:.74rem;font-weight:820;letter-spacing:.16em; }
-    .app-masthead-mark { display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:linear-gradient(140deg,#a847ca,#dd475b 68%,#f08a53);color:white; }
-    .app-masthead-date { color:#d0c1d9;font-size:.82rem; }
+    .app-masthead-mark { display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:linear-gradient(140deg,#b5faff,#08c9e5 58%,#ef536f);color:#07131e;font-weight:900; }
+    .app-masthead-date { color:#9bb0c4;font-size:.78rem;font-variant-numeric:tabular-nums; }
+    .app-masthead-status { display:inline-flex;align-items:center;gap:.45rem;margin-left:auto;margin-right:1.2rem;color:#b9d4df;font-size:.68rem;font-weight:750;letter-spacing:.1em; }
+    .app-masthead-status i { width:7px;height:7px;border-radius:50%;background:#51d8a2;box-shadow:0 0 12px #51d8a2a8; }
     .side-brand { gap:12px!important;letter-spacing:.1em!important;margin:.4rem 0 1.5rem!important; }
-    .side-mark { width:43px!important;height:43px!important;border-radius:15px!important;background:linear-gradient(140deg,#a847ca,#dd475b 68%,#f08a53)!important;color:#fff!important;box-shadow:0 6px 24px #ce426245,inset 0 1px 0 #ffffff55; }
+    .side-mark { width:43px!important;height:43px!important;border-radius:15px!important;background:linear-gradient(140deg,#b5faff,#08c9e5 58%,#ef536f)!important;color:#07131e!important;box-shadow:0 6px 24px #08c9e544,inset 0 1px 0 #ffffff55; }
     .sidebar-profile { display:flex;align-items:center;gap:10px;padding:11px 12px;margin:.6rem 0 .45rem;border:1px solid #ffffff18;border-radius:15px;background:#ffffff09; }
-    .sidebar-avatar { display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:12px;background:linear-gradient(140deg,#a847ca,#dd475b);font-weight:850;color:#fff; }
+    .sidebar-avatar { display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:12px;background:linear-gradient(140deg,#087f9c,#08c9e5 60%,#ef536f);font-weight:850;color:#07131e; }
     .sidebar-profile b,.sidebar-profile small { display:block; }.sidebar-profile b { font-size:.87rem; }.sidebar-profile small { color:#bba8c5;font-size:.69rem;margin-top:2px; }.sidebar-profile i { margin-left:auto;width:8px;height:8px;border-radius:50%;background:#65d9a0;box-shadow:0 0 12px #65d9a0a8; }
-    .side-nav-label { color:#d98be8!important;font-size:.67rem!important; }
+    .side-nav-label { color:#75dce9!important;font-size:.67rem!important; }
     [data-testid="stSidebar"] [data-testid="stRadio"] label { border-radius:12px!important;margin:2px 0!important;padding:.7rem .8rem!important;transition:all .18s ease!important; }
-    [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background:linear-gradient(100deg,#a946c14a,#db455644)!important;box-shadow:inset 3px 0 #ef7a82,0 8px 22px #1009154d;color:#fff!important; }
-    .hero-card { min-height:295px!important;padding:2.2rem 2.5rem!important;border:1px solid #e98ab13d!important;background:radial-gradient(ellipse at 83% 52%,#c445b944,transparent 34%),linear-gradient(112deg,#211427 0%,#421c35 47%,#832d3b 79%,#4b224f 100%)!important;box-shadow:0 22px 65px #35142c52, inset 0 1px 0 #ffffff12!important; }
-    .hero-card { background:radial-gradient(ellipse at 84% 47%,#8b3fbd42,transparent 34%),radial-gradient(ellipse at 65% 100%,#de3a552a,transparent 42%),linear-gradient(112deg,#100e17 0%,#1d1425 40%,#30182f 73%,#191323 100%)!important; }
-    .hero-card:after { width:410px!important;height:410px!important;right:3%!important;top:-62px!important;background:radial-gradient(circle,#b458e92e 0 18%,#e7526530 42%,#8f45bc1a 58%,transparent 71%)!important;filter:blur(2px); }
-    .hero-card h1 { text-shadow:0 4px 36px #ff73762b; }.hero-card p { color:#e3d3e5!important; }.hero-eyebrow { color:#ffc880!important; }
+    [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) { background:linear-gradient(100deg,#08c9e525,#ef536f1b)!important;box-shadow:inset 3px 0 #08c9e5,0 8px 22px #070d1550;color:#fff!important; }
+    .hero-card { min-height:295px!important;padding:2.2rem 2.5rem!important;border:1px solid #74ddeb2c!important;background:radial-gradient(ellipse at 83% 52%,#08c9e526,transparent 34%),linear-gradient(112deg,#0c1420 0%,#132b40 52%,#174358 100%)!important;box-shadow:0 22px 65px #03080e52,inset 0 1px 0 #ffffff12!important; }
+    .hero-card:after { width:410px!important;height:410px!important;right:3%!important;top:-62px!important;background:radial-gradient(circle,#08c9e52c 0 18%,#ef536f21 42%,#268bd218 58%,transparent 71%)!important;filter:blur(2px); }
+    .hero-card h1 { text-shadow:0 4px 36px #39e4f02b; }.hero-card p { color:#c9d8e3!important; }.hero-eyebrow { color:#81e7f0!important; }
     .hero-pill { background:#ffffff0d!important;border-color:#ffffff28!important;backdrop-filter:blur(10px); }
-    .phoenix-hero { width:min(37%,350px)!important;min-width:220px!important;filter:drop-shadow(0 0 24px #e45b8a77);animation:phoenix-drift 7s ease-in-out infinite; }
-    @keyframes phoenix-drift { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
-    .section-kicker { color:#c65370!important; }.soft-card { border-radius:19px!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important; }
+    .stark-reactor { width:min(37%,350px)!important;min-width:220px!important;filter:drop-shadow(0 0 24px #08c9e533);animation:reactor-drift 7s ease-in-out infinite; }
+    @keyframes reactor-drift { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-7px) rotate(1deg); } }
+    .section-kicker { color:#42bacd!important; }.soft-card { border-radius:19px!important;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important; }
     .soft-card { position:relative;overflow:hidden;border-color:var(--line)!important;box-shadow:0 10px 30px #08050e14,inset 0 1px 0 #ffffff08!important; }
-    .soft-card:before { content:"";position:absolute;left:0;top:0;width:34%;height:1px;background:linear-gradient(90deg,#b65be6,#ed5367,transparent);opacity:.65; }
-    .soft-card:hover { transform:translateY(-2px);box-shadow:0 16px 38px #09050f55!important;border-color:#87529d!important; }
+    .soft-card:before { content:"";position:absolute;left:0;top:0;width:34%;height:1px;background:linear-gradient(90deg,#08c9e5,#ef536f,transparent);opacity:.65; }
+    .soft-card:hover { transform:translateY(-2px);box-shadow:0 16px 38px #09050f55!important;border-color:#36bfd0!important; }
     [data-testid="stMetric"] { border-radius:18px!important;box-shadow:0 9px 28px #0a071222!important;transition:transform .18s ease,border-color .18s ease; }
-    [data-testid="stMetric"]:hover { transform:translateY(-2px);border-color:#a34bbf!important; }
+    [data-testid="stMetric"]:hover { transform:translateY(-2px);border-color:#08c9e566!important; }
     .quick-access-title { margin:.1rem 0 .7rem!important;font-size:1.08rem!important;font-weight:720!important;letter-spacing:-.015em!important; }
     [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h1 { font-size:clamp(1.8rem,3vw,2.4rem)!important;letter-spacing:-.045em!important; }
     [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h2 { font-size:1.5rem!important;letter-spacing:-.03em!important; }
-    [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h2:after { content:"";display:block;width:40px;height:3px;margin-top:.45rem;border-radius:99px;background:linear-gradient(90deg,#ad4bc8,#e34a5b); }
+    [data-testid="stMainBlockContainer"] [data-testid="stHeading"] h2:after { content:"";display:block;width:40px;height:3px;margin-top:.45rem;border-radius:99px;background:linear-gradient(90deg,#08c9e5,#ef536f); }
     [data-testid="stDataFrame"] { border:1px solid var(--line);border-radius:15px;overflow:hidden; }
     [data-testid="stPlotlyChart"],[data-testid="stVegaLiteChart"],[data-testid="stArrowVegaLiteChart"] { border-radius:17px; }
     [data-testid="stAlert"] { border-radius:14px!important; }
-    .stTextInput input:focus,.stTextArea textarea:focus,.stDateInput input:focus,.stNumberInput input:focus { border-color:#b866cf!important;box-shadow:0 0 0 2px #a34bbf35!important; }
-    [data-testid="stSidebar"] [data-testid="stMetric"] { background:linear-gradient(140deg,#211629,#19131f)!important;border-color:#ffffff12!important; }
+    .stTextInput input:focus,.stTextArea textarea:focus,.stDateInput input:focus,.stNumberInput input:focus { border-color:#08c9e5!important;box-shadow:0 0 0 2px #08c9e533!important; }
+    [data-testid="stSidebar"] [data-testid="stMetric"] { background:linear-gradient(140deg,#122235,#101a27)!important;border-color:#ffffff12!important; }
     [data-testid="stSidebar"] .stButton button,[data-testid="stSidebar"] .stDownloadButton button { background:#ffffff0d!important;border:1px solid #ffffff20!important;box-shadow:none!important;color:#f2eafa!important; }
-    [data-testid="stSidebar"] .stButton button:hover,[data-testid="stSidebar"] .stDownloadButton button:hover { background:#9e4bb42e!important;border-color:#bd71c8!important; }
-    [data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"]>div { background:#1b1422!important;border-color:#4d3658!important;color:#f4eefa!important; }
-    .stToggle [data-baseweb="switch"] div[role="switch"] { background:#61416e; }
-    a { color:#d98be8; }
+    [data-testid="stSidebar"] .stButton button:hover,[data-testid="stSidebar"] .stDownloadButton button:hover { background:#08c9e533!important;border-color:#08c9e5!important; }
+    [data-testid="stSidebar"] [data-testid="stSelectbox"] [data-baseweb="select"]>div { background:#101c2a!important;border-color:#345062!important;color:#f4f8fb!important; }
+    .stToggle [data-baseweb="switch"] div[role="switch"] { background:#245469; }
+    a { color:#69d3e1; }
     .stLinkButton a { border-radius:12px!important; }
     .st-key-home_feature_filter [data-testid="stRadio"] [role="radiogroup"] { display:flex!important;flex-wrap:wrap;gap:.45rem!important; }
     .st-key-home_feature_filter [data-testid="stRadio"] label { border:1px solid #ffffff14!important;border-radius:999px!important;background:#ffffff08!important;padding:.38rem .85rem!important;transition:all .22s ease!important; }
     .st-key-home_feature_filter [data-testid="stRadio"] label p { color:#c9c3d0!important;font-size:.78rem!important;font-weight:700!important; }
-    .st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) { border-color:#b85fdd88!important;background:linear-gradient(100deg,#9e4bb42e,#db45562b)!important;box-shadow:0 0 18px #a34bbf20!important; }
+    .st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) { border-color:color-mix(in srgb,var(--brand) 55%,transparent)!important;background:linear-gradient(100deg,color-mix(in srgb,var(--brand) 12%,transparent),color-mix(in srgb,var(--gold) 10%,transparent))!important;box-shadow:0 0 18px color-mix(in srgb,var(--brand) 15%,transparent)!important; }
     .st-key-home_feature_filter [data-testid="stRadio"] label:has(input:checked) p { color:#fff!important; }
     .feature-hint { letter-spacing:.04em; }
     .st-key-home_feature_cards { overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;cursor:grab;touch-action:pan-x; }
@@ -2028,10 +2022,10 @@ def main():
     .st-key-home_feature_cards [data-testid="stHorizontalBlock"] { min-width:800px;scroll-snap-type:x mandatory; }
     .st-key-home_feature_cards [data-testid="column"] { scroll-snap-align:center; }
     .bento-card { transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
-    .bento-card:hover { transform:translateY(-2px);border-color:#a85cf244;box-shadow:0 16px 38px #08050f55,inset 0 1px 0 #ffffff0d; }
-    .stButton button,.stDownloadButton button { border-radius:12px!important;background:linear-gradient(105deg,#a245c4,#d54362 68%,#ed7549)!important;color:#fff!important;border:0!important;box-shadow:0 7px 22px #9c356f2c!important; }
-    .stButton button:hover,.stDownloadButton button:hover { filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 11px 30px #9c356f45!important; }
-    [data-testid="stProgressBar"] > div > div { background:linear-gradient(90deg,#a34bc7,#d84467,#f07c4c)!important; }
+    .bento-card:hover { transform:translateY(-2px);border-color:color-mix(in srgb,var(--brand) 28%,transparent);box-shadow:0 16px 38px #08050f55,inset 0 1px 0 #ffffff0d; }
+    .stButton button,.stDownloadButton button { border-radius:12px!important;background:linear-gradient(105deg,var(--brand),var(--mint) 68%,var(--gold))!important;color:#07131b!important;border:0!important;box-shadow:0 7px 22px color-mix(in srgb,var(--brand) 18%,transparent)!important; }
+    .stButton button:hover,.stDownloadButton button:hover { filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 11px 30px color-mix(in srgb,var(--brand) 28%,transparent)!important; }
+    [data-testid="stProgressBar"] > div > div { background:linear-gradient(90deg,var(--brand),var(--mint),var(--gold))!important; }
     .study-heatmap { border-radius:18px!important; }.calendar-day { border-radius:16px!important; }
     [data-testid="stMainBlockContainer"] { max-width:1460px!important;z-index:1; }
     .st-key-primary_nav_container { position:relative;z-index:2;background:var(--paper); }
@@ -2039,20 +2033,18 @@ def main():
     .st-key-primary_nav_container [data-testid="stRadio"] label { position:relative;padding:.7rem .15rem .85rem!important;margin:0!important;border-radius:0!important;background:transparent!important;color:#c6bccd!important;white-space:nowrap;transition:color .25s ease,opacity .25s ease; }
     .st-key-primary_nav_container [data-testid="stRadio"] label p { color:inherit!important;font-weight:650!important;font-size:.86rem!important; }
     .st-key-primary_nav_container [data-testid="stRadio"] label:has(input:checked) { color:#fff!important;box-shadow:none!important;background:transparent!important; }
-    .st-key-primary_nav_container [data-testid="stRadio"] label:after { content:"";position:absolute;bottom:-1px;left:0;width:100%;height:2px;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#a94ccc,#e34d65,#f0814e);transition:transform .32s cubic-bezier(.2,.8,.2,1); }
+    .st-key-primary_nav_container [data-testid="stRadio"] label:after { content:"";position:absolute;bottom:-1px;left:0;width:100%;height:2px;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,var(--brand),var(--mint),var(--gold));transition:transform .32s cubic-bezier(.2,.8,.2,1); }
     .st-key-primary_nav_container [data-testid="stRadio"] label:has(input:checked):after { transform:scaleX(1); }
     .section-change-indicator { height:3px;position:relative;overflow:hidden;margin:.8rem 0 1.25rem;border-radius:99px;background:#ffffff12; }
-    .section-change-indicator:after { content:"";display:block;height:100%;width:38%;border-radius:inherit;background:linear-gradient(90deg,#a94ccc,#e34d65,#f0814e);transform:translateX(0);opacity:.8; }
+    .section-change-indicator:after { content:"";display:block;height:100%;width:38%;border-radius:inherit;background:linear-gradient(90deg,var(--brand),var(--mint),var(--gold));transform:translateX(0);opacity:.8; }
     .section-change-indicator.animate:after { animation:section-glide .48s cubic-bezier(.2,.8,.2,1) both; }
     @keyframes section-glide { from { transform:translateX(-110%);opacity:.35; } to { transform:translateX(270%);opacity:1; } }
     @media(prefers-reduced-motion:reduce) { .section-change-indicator:after { animation:none;transform:translateX(0); } }
-    @media(prefers-reduced-motion:reduce) { .phoenix-hero { animation:none!important; } }
-    @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.phoenix-hero { min-width:112px!important;width:30%!important; }.quick-access-title { font-size:1rem!important; }.study-heatmap { gap:4px;padding:.65rem; } }
+    @media(prefers-reduced-motion:reduce) { .stark-reactor { animation:none!important; } }
+    @media(max-width:760px) { .app-masthead { margin:0 0 1rem; }.app-masthead-date { display:none; }.hero-card { padding:1.4rem!important;min-height:235px!important; }.stark-reactor { min-width:112px!important;width:30%!important; }.quick-access-title { font-size:1rem!important; }.study-heatmap { gap:4px;padding:.65rem; } }
     </style>""", unsafe_allow_html=True)
-    st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'><span class='app-masthead-mark'>{phoenix_mark_svg(22)}</span> ANKA · YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
-    st.markdown(phoenix_watermark_svg(), unsafe_allow_html=True)
-    if theme_mode == "Açık":
-        st.markdown("<style>.phoenix-backdrop{opacity:.035;mix-blend-mode:multiply}.phoenix-backdrop svg{filter:drop-shadow(0 0 24px #8e48ad20)}</style>", unsafe_allow_html=True)
+    st.markdown(f"<div class='app-masthead'><div class='app-masthead-brand'><span class='app-masthead-mark'>J</span> JARVIS // YKS ÇALIŞMA STÜDYOSU</div><span class='app-masthead-status'><i></i>{'JARVIS CORE READY' if api_ready else 'LOCAL MODE'}</span><span class='app-masthead-date'>{datetime.now().strftime('%d.%m.%Y · %H:%M')}</span></div>", unsafe_allow_html=True)
+    st.markdown(ambient_hud_markup(), unsafe_allow_html=True)
 
     current_view = st.session_state.get("active_view", "⌂ Genel Bakış")
     primary_for_view = {view: label for label, view in PRIMARY_NAV.items()}
@@ -2073,7 +2065,7 @@ def main():
     with st.sidebar:
         st.markdown("<div class='side-nav-label'>ÇALIŞMA ALANI</div>", unsafe_allow_html=True)
         active_view = st.radio("Bölümler", ["⌂ Genel Bakış", "🧠 Koç Merkezi", "Haberler", "Hava Durumu", "3D Baskı Maliyetleri", "📝 Soru Analizi", "🧭 Konu Haritası", "📅 Program", "🎓 Sınav Planlayıcı", "📈 İlerleme",
-                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Piyasalar & Akıllı Ev", "⏱️ YPT Saatlerim", "🔥 AnkaXP & Arkadaş", "📦 Çevrimdışı çalışma", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
+                                             "🎯 Odak Modu", "🎬 TYT Video Kampları", "🌐 Piyasalar & Akıllı Ev", "⏱️ YPT Saatlerim", "⚡ JARVIS XP & Arkadaş", "📦 Çevrimdışı çalışma", "🔗 Kaynak Arşivi", "🗂️ Hafıza", "🤖 JARVIS Araçları", "💬 Koçla Sohbet"],
                                label_visibility="collapsed", key="active_view")
         st.divider()
         st.markdown("<div class='side-nav-label'>DURUM</div>", unsafe_allow_html=True)
@@ -2081,7 +2073,7 @@ def main():
         st.metric("📂 Hafıza kaydı", len(records))
 
     if active_view == "⌂ Genel Bakış":
-        render_dashboard(user_id, st.session_state.get("username", "Öğrenci"))
+        render_dashboard(user_id, st.session_state.get("username", "Öğrenci"), api_ready=api_ready)
     if active_view == "🧠 Koç Merkezi":
         render_coach_center(user_id)
     if active_view == "Haberler":
@@ -2094,8 +2086,8 @@ def main():
         render_3d_print_calculator()
     if active_view == "⏱️ YPT Saatlerim":
         render_ypt_bridge(user_id)
-    if active_view == "🔥 AnkaXP & Arkadaş":
-        render_anka_social(user_id, st.session_state.get("username", "Öğrenci"))
+    if active_view == "⚡ JARVIS XP & Arkadaş":
+        render_jarvis_social(user_id, st.session_state.get("username", "Öğrenci"))
     if active_view == "📦 Çevrimdışı çalışma":
         render_offline_kit(user_id)
     if active_view == "📝 Soru Analizi":
