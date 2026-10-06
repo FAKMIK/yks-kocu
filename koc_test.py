@@ -1088,6 +1088,25 @@ def navigate_to_view(view: str) -> None:
     st.session_state["active_view"] = view
 
 
+HOME_CAROUSEL_ITEMS = [
+    ("🎯", "Odak seansı", "Bir çalışma bloğu başlat; süre ve dersini kaydet.", "🎯 Odak Modu"),
+    ("🧠", "Koç Merkezi", "Plan, konu haritası, denemeler ve JARVIS tek yerde.", "🧠 Koç Merkezi"),
+    ("🎬", "Video kampları", "TYT ders kamplarını ve oynatma listelerini aç.", "🎬 TYT Video Kampları"),
+    ("🌐", "Gündem ve hava", "Günün haberlerini ve seçtiğin ilin havasını gör.", "🌐 Dünya Paneli"),
+    ("🖨️", "3D Baskı Atölyesi", "Filament, elektrik ve satış fiyatını hesapla.", "🖨️ 3D Baskı Atölyesi"),
+    ("🎓", "Sınav hedefi", "Sınav tarihini ve deneme hedeflerini takip et.", "🎓 Sınav Planlayıcı"),
+]
+
+
+def move_home_carousel(step: int) -> None:
+    current = int(st.session_state.get("home_carousel_index", 0))
+    st.session_state.home_carousel_index = (current + step) % len(HOME_CAROUSEL_ITEMS)
+
+
+def select_home_carousel(index: int) -> None:
+    st.session_state.home_carousel_index = index % len(HOME_CAROUSEL_ITEMS)
+
+
 @st.fragment(run_every="1s")
 def render_shared_room(user_id: int, code: str) -> None:
     room, members = get_study_room(user_id, code)
@@ -1371,20 +1390,44 @@ def render_dashboard(user_id: int, username: str) -> None:
     streak_col.metric("🔥 Çalışma serisi", f"{study_streak} gün")
     badge_col.markdown(f"<div class='soft-card' style='padding:.85rem 1rem'><span class='section-kicker'>GELİŞİM ROZETİ</span><p style='margin-top:.3rem'>🏅 {streak_badge} · Her gün kısa bir oturum bile serini sürdürür.</p></div>", unsafe_allow_html=True)
 
-    st.markdown("<div class='section-kicker' style='margin-top:1.2rem'>HIZLI ERİŞİM</div><h3 class='quick-access-title'>Bugün ne yapmak istersin?</h3>", unsafe_allow_html=True)
-    shortcut_items = [("🎯", "Odak seansı", "Kısa bir çalışma bloğu başlat.", "🎯 Odak Modu"),
-                      ("▶", "TYT video kampları", "Ders anlatımlarına geç.", "🎬 TYT Video Kampları"),
-                      ("🧠", "Koç Merkezi", "Plan, konu haritası ve JARVIS.", "🧠 Koç Merkezi"),
-                      ("🗞️", "Gündem ve hava", "Günlük özeti aç.", "🌐 Dünya Paneli"),
-                      ("🖨️", "3D Baskı Atölyesi", "Baskı maliyetini hesapla.", "🖨️ 3D Baskı Atölyesi"),
-                      ("🎓", "Sınav hedefi", "Denemeni ve sınav tarihini izle.", "🎓 Sınav Planlayıcı")]
-    for row_start in range(0, len(shortcut_items), 3):
-        shortcuts = st.columns(3, gap="medium")
-        for shortcut_col, (icon, label, description, destination) in zip(shortcuts, shortcut_items[row_start:row_start + 3]):
-            with shortcut_col:
-                st.markdown(f"<div class='soft-card' style='min-height:120px;margin:.3rem 0'><span class='mini-icon'>{icon}</span><h3>{label}</h3><p>{description}</p></div>", unsafe_allow_html=True)
-                st.button(f"Bölüme git →", key=f"shortcut_{destination}", use_container_width=True,
+    st.markdown("<div class='section-kicker' style='margin-top:1.2rem'>ANKA KEŞİF ŞERİDİ</div><h3 class='quick-access-title'>Bugün hangi alana geçelim?</h3>", unsafe_allow_html=True)
+    st.markdown("""<style>
+    .anka-slide { min-height:174px;padding:1.15rem 1.2rem;border:1px solid #ffffff24;border-radius:20px;
+      background:linear-gradient(145deg,#211927,#17151f);color:#f8effa;box-shadow:0 15px 34px #08050c45;
+      transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .35s ease,box-shadow .35s ease,border-color .35s ease;
+      animation:anka-slide-in .42s cubic-bezier(.2,.8,.2,1) both; }
+    .anka-slide.active { min-height:198px;border-color:#cf67d5aa;background:radial-gradient(circle at 85% 12%,#d64c8a42,transparent 38%),linear-gradient(135deg,#2c1935,#4b203e 60%,#782e43);box-shadow:0 20px 50px #7e2f6738,inset 0 1px #ffffff20; }
+    .anka-slide.side-left { transform:perspective(900px) rotateY(10deg) scale(.91) translateX(8px);opacity:.78; }
+    .anka-slide.side-right { transform:perspective(900px) rotateY(-10deg) scale(.91) translateX(-8px);opacity:.78; }
+    .anka-slide .slide-index { color:#f3b8d5;font-size:.66rem;letter-spacing:.14em;font-weight:800;text-transform:uppercase; }
+    .anka-slide .slide-icon { font-size:1.85rem;margin:.45rem 0;filter:drop-shadow(0 0 12px #e66bbd65); }
+    .anka-slide h3 { color:#fff!important;font-size:1.05rem!important;margin:.1rem 0 .38rem!important; }
+    .anka-slide p { color:#d4c5d9!important;font-size:.81rem!important;line-height:1.45;margin:0!important; }
+    @keyframes anka-slide-in { from { opacity:.45;filter:blur(2px); } to { opacity:1;filter:blur(0); } }
+    @media(max-width:760px) { .anka-slide { min-height:165px;padding:.8rem;border-radius:15px; }.anka-slide.side-left,.anka-slide.side-right { transform:scale(.92); } }
+    @media(prefers-reduced-motion:reduce) { .anka-slide { animation:none;transition:none; } }
+    </style>""", unsafe_allow_html=True)
+    carousel_index = int(st.session_state.get("home_carousel_index", 0)) % len(HOME_CAROUSEL_ITEMS)
+    previous_controls = st.columns([1, 5, 1])
+    with previous_controls[0]:
+        st.button("←", key="home_carousel_prev", help="Önceki bölümler", on_click=move_home_carousel, args=(-1,))
+    with previous_controls[1]:
+        st.markdown(f"<div style='text-align:center;color:#bfaec8;font-size:.75rem;padding:.55rem'>BÖLÜM {carousel_index + 1:02d} / {len(HOME_CAROUSEL_ITEMS):02d} · Kart seç veya oklarla keşfet</div>", unsafe_allow_html=True)
+    with previous_controls[2]:
+        st.button("→", key="home_carousel_next", help="Sonraki bölümler", on_click=move_home_carousel, args=(1,))
+    carousel_columns = st.columns([1, 1.22, 1], gap="medium")
+    for slot, offset in zip(carousel_columns, (-1, 0, 1)):
+        slide_index = (carousel_index + offset) % len(HOME_CAROUSEL_ITEMS)
+        icon, label, description, destination = HOME_CAROUSEL_ITEMS[slide_index]
+        slide_class = "active" if offset == 0 else ("side-left" if offset < 0 else "side-right")
+        with slot:
+            st.markdown(f"<div class='anka-slide {slide_class}'><div class='slide-index'>ANKA · {slide_index + 1:02d}</div><div class='slide-icon'>{icon}</div><h3>{html.escape(label)}</h3><p>{html.escape(description)}</p></div>", unsafe_allow_html=True)
+            if offset == 0:
+                st.button("Bu bölümü aç  →", key=f"home_carousel_open_{slide_index}", use_container_width=True,
                           on_click=navigate_to_view, args=(destination,))
+            else:
+                st.button("Merkeze al", key=f"home_carousel_select_{slide_index}", use_container_width=True,
+                          on_click=select_home_carousel, args=(slide_index,))
 
     left, right = st.columns([1.45, 1], gap="large")
     with left:
